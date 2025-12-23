@@ -1,7 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { generateEventConcept } from '../services/geminiService';
 import { NftEvent } from '../types';
-import { Sparkles, Loader2, Image as ImageIcon, Upload } from 'lucide-react';
+import { Sparkles, Loader2, Image as ImageIcon, Upload, Wallet, AlertCircle } from 'lucide-react';
+import { contractService } from '../src/services/contractService';
 
 interface CreateEventProps {
   onEventCreated: (event: NftEvent) => void;
@@ -11,6 +12,8 @@ interface CreateEventProps {
 const CreateEvent: React.FC<CreateEventProps> = ({ onEventCreated, walletAddress }) => {
   const [prompt, setPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState<Partial<NftEvent>>({
     title: '',
     description: '',
@@ -21,6 +24,12 @@ const CreateEvent: React.FC<CreateEventProps> = ({ onEventCreated, walletAddress
     category: 'Other',
     imageUrl: ''
   });
+
+  // Ticket types configuration (contract supports multiple types)
+  const [ticketTypes, setTicketTypes] = useState([
+    { name: 'General Admission', price: 0.05, supply: 80 },
+    { name: 'VIP', price: 0.15, supply: 20 }
+  ]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -57,26 +66,80 @@ const CreateEvent: React.FC<CreateEventProps> = ({ onEventCreated, walletAddress
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.title || !formData.description) return;
 
-    const newEvent: NftEvent = {
-      id: Date.now().toString(),
-      title: formData.title,
-      description: formData.description,
-      date: formData.date || '',
-      location: formData.location || '',
-      priceETH: formData.priceETH || 0,
-      imageUrl: formData.imageUrl || `https://picsum.photos/800/600?random=${Date.now()}`,
-      organizer: walletAddress || '0xYOU',
-      totalTickets: formData.totalTickets || 100,
-      soldTickets: 0,
-      category: formData.category as any,
-      reviews: []
-    };
+    // Check wallet connection
+    if (!walletAddress) {
+      setError('Please connect your wallet first');
+      return;
+    }
 
-    onEventCreated(newEvent);
+    setIsCreating(true);
+    setError(null);
+
+    try {
+      // Initialize contract service with MetaMask
+      await contractService.initializeWithMetaMask();
+
+      // Prepare event data for contract
+      const eventData = {
+        title: formData.title,
+        description: formData.description,
+        date: formData.date || '',
+        location: formData.location || '',
+        prices: ticketTypes.map(type => type.price), // Contract supports multiple ticket types
+        supplies: ticketTypes.map(type => type.supply),
+        imageUrl: formData.imageUrl || `https://picsum.photos/800/600?random=${Date.now()}`,
+        category: formData.category as string,
+        royaltyPercentage: 500 // 5% royalty
+      };
+
+      // Create event on blockchain
+      const eventId = await contractService.createEvent(eventData);
+
+      // Create local event object for UI
+      const newEvent: NftEvent = {
+        id: eventId.toString(),
+        title: formData.title,
+        description: formData.description,
+        date: formData.date || '',
+        location: formData.location || '',
+        priceETH: ticketTypes[0].price, // Use first ticket type price for display
+        imageUrl: formData.imageUrl || `https://picsum.photos/800/600?random=${Date.now()}`,
+        organizer: walletAddress,
+        totalTickets: ticketTypes.reduce((sum, type) => sum + type.supply, 0),
+        soldTickets: 0,
+        category: formData.category as any,
+        reviews: []
+      };
+
+      // Notify parent component
+      onEventCreated(newEvent);
+
+      // Success message
+      alert(`🎉 Event "${formData.title}" created successfully on the blockchain!\n\nEvent ID: ${eventId}\n\nYou can now sell tickets for this event.`);
+
+      // Reset form
+      setFormData({
+        title: '',
+        description: '',
+        priceETH: 0.05,
+        location: 'Metaverse Hall A',
+        date: new Date().toISOString().split('T')[0],
+        totalTickets: 100,
+        category: 'Other',
+        imageUrl: ''
+      });
+      setPrompt('');
+
+    } catch (err) {
+      console.error('Failed to create event:', err);
+      setError(err instanceof Error ? err.message : 'Failed to create event on blockchain');
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   return (
@@ -115,6 +178,30 @@ const CreateEvent: React.FC<CreateEventProps> = ({ onEventCreated, walletAddress
 
         {/* Right: Main Form */}
         <div className="md:col-span-2 bg-lumina-card border border-white/5 rounded-2xl p-6">
+          {/* Wallet Connection Warning */}
+          {!walletAddress && (
+            <div className="mb-6 p-4 bg-yellow-900/20 border border-yellow-500/20 rounded-xl">
+              <div className="flex items-center space-x-2 text-yellow-400">
+                <Wallet className="h-5 w-5" />
+                <span className="font-medium">Wallet Required</span>
+              </div>
+              <p className="text-yellow-300 text-sm mt-1">
+                Please connect your MetaMask wallet to create events on the blockchain.
+              </p>
+            </div>
+          )}
+
+          {/* Error Display */}
+          {error && (
+            <div className="mb-6 p-4 bg-red-900/20 border border-red-500/20 rounded-xl">
+              <div className="flex items-center space-x-2 text-red-400">
+                <AlertCircle className="h-5 w-5" />
+                <span className="font-medium">Error</span>
+              </div>
+              <p className="text-red-300 text-sm mt-1">{error}</p>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-gray-400 mb-2">Event Title</label>
@@ -242,9 +329,19 @@ const CreateEvent: React.FC<CreateEventProps> = ({ onEventCreated, walletAddress
             <div className="pt-4">
               <button
                 type="submit"
-                className="w-full py-4 rounded-xl bg-white text-black font-bold text-lg hover:bg-gray-200 transition-colors shadow-lg shadow-white/10"
+                disabled={isCreating || !walletAddress}
+                className="w-full py-4 rounded-xl bg-white text-black font-bold text-lg hover:bg-gray-200 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors shadow-lg shadow-white/10 flex items-center justify-center"
               >
-                Mint Event NFT
+                {isCreating ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                    Creating Event on Blockchain...
+                  </>
+                ) : !walletAddress ? (
+                  'Connect Wallet to Create Event'
+                ) : (
+                  'Mint Event NFT'
+                )}
               </button>
             </div>
           </form>

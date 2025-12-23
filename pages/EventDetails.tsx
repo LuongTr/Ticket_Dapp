@@ -1,23 +1,41 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { NftEvent, Review } from '../types';
+import { useParams, Link } from 'react-router-dom';
+import { NftEvent, WalletState } from '../types';
 import { ArrowLeft, Calendar, MapPin, Tag, User, Share2, Ticket as TicketIcon, Clock, ShieldCheck, CalendarPlus, Download, ExternalLink, Star, MessageSquare } from 'lucide-react';
 
 interface EventDetailsProps {
-  event: NftEvent;
-  onBack: () => void;
-  onBuy: (event: NftEvent) => void;
+  events: NftEvent[];
+  wallet: WalletState;
+  onBuyTicket: (event: NftEvent) => void;
   onAddReview: (eventId: string, rating: number, comment: string) => void;
-  walletIsConnected: boolean;
 }
 
-const EventDetails: React.FC<EventDetailsProps> = ({ event, onBack, onBuy, onAddReview, walletIsConnected }) => {
+const EventDetails: React.FC<EventDetailsProps> = ({ events, wallet, onBuyTicket, onAddReview }) => {
+  const { id } = useParams<{ id: string }>();
   const [showCalendarOptions, setShowCalendarOptions] = useState(false);
   const calendarRef = useRef<HTMLDivElement>(null);
-  
+
   // Review form state
   const [userRating, setUserRating] = useState(5);
   const [userComment, setUserComment] = useState('');
-  
+
+  // Find the event by ID
+  const event = events.find(e => e.id === id);
+
+  // If event not found, could show error or redirect
+  if (!event) {
+    return (
+      <div className="min-h-screen bg-lumina-dark text-white flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold mb-4">Event Not Found</h2>
+          <Link to="/explore" className="text-lumina-glow hover:text-white">
+            Back to Explore
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   // Scroll to top on mount
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -121,13 +139,13 @@ END:VCALENDAR`;
         />
         
         <div className="absolute top-8 left-4 sm:left-8 z-20">
-          <button 
-            onClick={onBack}
+          <Link
+            to="/explore"
             className="flex items-center space-x-2 px-4 py-2 bg-black/30 backdrop-blur-md border border-white/10 rounded-full text-white hover:bg-white/10 transition-all"
           >
             <ArrowLeft className="h-4 w-4" />
             <span>Back to Explore</span>
-          </button>
+          </Link>
         </div>
       </div>
 
@@ -265,7 +283,7 @@ END:VCALENDAR`;
 
                {/* Review Form */}
                <div className="mb-10">
-                   {walletIsConnected ? (
+                   {wallet.isConnected ? (
                        <div className="bg-gradient-to-br from-white/5 to-transparent rounded-2xl p-6 border border-white/5">
                            <form onSubmit={handleSubmitReview}>
                                <h4 className="text-lg font-semibold text-white mb-4 flex items-center">
@@ -421,10 +439,10 @@ END:VCALENDAR`;
                 </div>
 
                 <button
-                  onClick={() => onBuy(event)}
+                  onClick={() => onBuyTicket(event)}
                   disabled={isSoldOut}
                   className={`w-full py-4 rounded-xl font-bold text-lg shadow-lg flex items-center justify-center transition-all duration-300 ${
-                    isSoldOut 
+                    isSoldOut
                       ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
                       : 'bg-white text-lumina-dark hover:bg-gray-200 hover:shadow-white/10'
                   }`}

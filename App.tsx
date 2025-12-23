@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
-import Hero from './components/Hero';
-import EventCard from './components/EventCard';
-import CreateEvent from './components/CreateEvent';
-import Dashboard from './components/Dashboard';
-import EventDetails from './components/EventDetails';
-import { ViewState, WalletState, NftEvent, Ticket, Review } from './types';
-import { Search, Filter, X, Calendar as CalendarIcon, Wallet } from 'lucide-react';
+import Home from './pages/Home';
+import Explore from './pages/Explore';
+import MyEvents from './pages/MyEvents';
+import CreateEvent from './pages/CreateEvent';
+import Dashboard from './pages/Dashboard';
+import EventDetails from './pages/EventDetails';
+import { WalletState, NftEvent, Ticket, Review } from './types';
 
 // Mock Data
 const MOCK_EVENTS: NftEvent[] = [
@@ -78,7 +79,6 @@ const MOCK_EVENTS: NftEvent[] = [
 ];
 
 const App: React.FC = () => {
-  const [view, setView] = useState<ViewState>(ViewState.HOME);
   const [wallet, setWallet] = useState<WalletState>({
     isConnected: false,
     address: null,
@@ -86,16 +86,6 @@ const App: React.FC = () => {
   });
   const [events, setEvents] = useState<NftEvent[]>(MOCK_EVENTS);
   const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('All');
-  const [selectedEvent, setSelectedEvent] = useState<NftEvent | null>(null);
-
-  // Filter States
-  const [showFilters, setShowFilters] = useState(false);
-  const [dateRange, setDateRange] = useState<{start: string, end: string}>({ start: '', end: '' });
-  const [priceRange, setPriceRange] = useState<{min: string, max: string}>({ min: '', max: '' });
-
-  const categories = ['All', 'Music', 'Tech', 'Art', 'Sports', 'Other'];
 
   // Helper to fetch balance and update wallet state
   const updateWalletState = async (address: string) => {
@@ -167,7 +157,7 @@ const App: React.FC = () => {
         });
       }
     };
-    
+
     checkConnection();
 
     // Cleanup not strictly necessary for window.ethereum but good practice if it were a component specific listener
@@ -207,19 +197,17 @@ const App: React.FC = () => {
 
   const handleEventCreated = (newEvent: NftEvent) => {
     setEvents([newEvent, ...events]);
-    setView(ViewState.EXPLORE);
-    setSelectedCategory('All');
     alert("Event minted to the blockchain successfully!");
   };
 
   const handleTicketUse = (ticketId: string) => {
-    setTickets(prev => prev.map(t => 
+    setTickets(prev => prev.map(t =>
       t.id === ticketId ? { ...t, isUsed: true } : t
     ));
   };
 
   const handleTransferTicket = (ticketId: string, toAddress: string) => {
-    setTickets(prev => prev.map(t => 
+    setTickets(prev => prev.map(t =>
         t.id === ticketId ? { ...t, ownerAddress: toAddress } : t
     ));
     alert(`Ticket successfully transferred to ${toAddress}`);
@@ -239,298 +227,90 @@ const App: React.FC = () => {
         timestamp: new Date().toISOString()
     };
 
-    const updatedEvents = events.map(e => 
+    setEvents(events.map(e =>
         e.id === eventId ? { ...e, reviews: [newReview, ...e.reviews] } : e
-    );
-
-    setEvents(updatedEvents);
-    
-    // Update selected event if it's the one being reviewed
-    if (selectedEvent && selectedEvent.id === eventId) {
-        setSelectedEvent({ ...selectedEvent, reviews: [newReview, ...selectedEvent.reviews] });
-    }
-  };
-
-  const handleViewEventDetails = (event: NftEvent) => {
-    setSelectedEvent(event);
-    setView(ViewState.EVENT_DETAILS);
-  };
-
-  const filteredEvents = events.filter(e => {
-    const searchLower = searchQuery.toLowerCase();
-    const matchesSearch = 
-      e.title.toLowerCase().includes(searchLower) || 
-      e.location.toLowerCase().includes(searchLower) ||
-      e.category.toLowerCase().includes(searchLower);
-    
-    const matchesCategory = selectedCategory === 'All' || e.category === selectedCategory;
-
-    // Date Logic
-    const eventDate = new Date(e.date);
-    const start = dateRange.start ? new Date(dateRange.start) : null;
-    const end = dateRange.end ? new Date(dateRange.end) : null;
-    const matchesDate = (!start || eventDate >= start) && (!end || eventDate <= end);
-
-    // Price Logic
-    const min = priceRange.min !== '' ? parseFloat(priceRange.min) : 0;
-    const max = priceRange.max !== '' ? parseFloat(priceRange.max) : Infinity;
-    const matchesPrice = e.priceETH >= min && e.priceETH <= max;
-
-    return matchesSearch && matchesCategory && matchesDate && matchesPrice;
-  });
-
-  const clearFilters = () => {
-    setSearchQuery('');
-    setSelectedCategory('All');
-    setDateRange({ start: '', end: '' });
-    setPriceRange({ min: '', max: '' });
+    ));
   };
 
   return (
-    <div className="min-h-screen bg-lumina-dark text-white font-sans selection:bg-lumina-accent selection:text-white">
-      <Navbar 
-        currentView={view} 
-        changeView={setView} 
-        wallet={wallet} 
-        connectWallet={connectWallet} 
-      />
+    <Router>
+      <div className="min-h-screen bg-lumina-dark text-white font-sans selection:bg-lumina-accent selection:text-white">
+        <Navbar
+          wallet={wallet}
+          connectWallet={connectWallet}
+        />
 
-      <main className="pt-20">
-        {view === ViewState.HOME && (
-          <Hero onChangeView={setView} />
-        )}
-
-        {view === ViewState.EXPLORE && (
-          <div className="max-w-7xl mx-auto px-4 py-12">
-            
-            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-4">
-              <h2 className="text-3xl font-display font-bold">Explore Events</h2>
-              
-              <div className="flex gap-3 w-full lg:w-auto">
-                <div className="relative flex-grow lg:w-96">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500" />
-                  <input 
-                    type="text"
-                    placeholder="Search events..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-10 pr-4 focus:outline-none focus:border-lumina-glow transition-all"
-                  />
-                </div>
-                
-                <button
-                    onClick={() => setShowFilters(!showFilters)}
-                    className={`p-3 rounded-xl border transition-all flex items-center justify-center ${
-                        showFilters
-                        ? 'bg-lumina-glow text-white border-lumina-glow shadow-[0_0_15px_rgba(139,92,246,0.3)]'
-                        : 'bg-white/5 border-white/10 text-gray-400 hover:text-white hover:bg-white/10'
-                    }`}
-                    title="Toggle Filters"
-                >
-                    {showFilters ? <X className="h-5 w-5" /> : <Filter className="h-5 w-5" />}
-                </button>
-              </div>
-            </div>
-
-            {/* Expanded Filters Panel */}
-            {showFilters && (
-                <div className="bg-lumina-card border border-white/5 rounded-2xl p-6 mb-8 animate-in slide-in-from-top-2 fade-in duration-200 shadow-xl">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        
-                        {/* Date Range */}
-                        <div className="space-y-3">
-                            <h4 className="text-sm font-medium text-gray-400">Date Range</h4>
-                            <div className="flex items-center gap-2">
-                                <input 
-                                    type="date" 
-                                    value={dateRange.start}
-                                    onChange={(e) => setDateRange({...dateRange, start: e.target.value})}
-                                    className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-lumina-glow/50"
-                                />
-                                <span className="text-gray-600">-</span>
-                                <input 
-                                    type="date" 
-                                    value={dateRange.end}
-                                    onChange={(e) => setDateRange({...dateRange, end: e.target.value})}
-                                    className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-lumina-glow/50"
-                                />
-                            </div>
-                        </div>
-
-                        {/* Price Range */}
-                        <div className="space-y-3">
-                            <h4 className="text-sm font-medium text-gray-400">Price Range (ETH)</h4>
-                            <div className="flex items-center gap-2">
-                                <input 
-                                    type="number" 
-                                    placeholder="Min"
-                                    min="0"
-                                    step="0.01"
-                                    value={priceRange.min}
-                                    onChange={(e) => setPriceRange({...priceRange, min: e.target.value})}
-                                    className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-lumina-glow/50"
-                                />
-                                <span className="text-gray-600">-</span>
-                                <input 
-                                    type="number" 
-                                    placeholder="Max"
-                                    min="0"
-                                    step="0.01"
-                                    value={priceRange.max}
-                                    onChange={(e) => setPriceRange({...priceRange, max: e.target.value})}
-                                    className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-lumina-glow/50"
-                                />
-                            </div>
-                        </div>
-
-                        {/* Quick Actions / Reset */}
-                        <div className="flex items-end justify-end">
-                            <button
-                                onClick={clearFilters}
-                                className="px-4 py-2 text-sm text-gray-400 hover:text-white underline decoration-gray-600 hover:decoration-white transition-all"
-                            >
-                                Reset Filters
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Category Filters */}
-            <div className="flex flex-wrap gap-2 mb-8">
-              {categories.map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => setSelectedCategory(cat)}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 border ${
-                    selectedCategory === cat
-                      ? 'bg-white text-lumina-dark border-white'
-                      : 'bg-white/5 text-gray-400 border-transparent hover:bg-white/10 hover:text-white'
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {filteredEvents.map(event => (
-                <EventCard 
-                  key={event.id} 
-                  event={event} 
-                  onBuy={handleBuyTicket} 
-                  onClick={() => handleViewEventDetails(event)}
+        <main className="pt-20">
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route
+              path="/explore"
+              element={
+                <Explore
+                  wallet={wallet}
+                  onBuyTicket={handleBuyTicket}
+                  onViewEventDetails={(event) => {
+                    // Navigate to event details page
+                    window.location.href = `/events/${event.id}`;
+                  }}
                 />
-              ))}
-            </div>
-            
-            {filteredEvents.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-20 text-center">
-                    <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mb-4">
-                        <Search className="h-8 w-8 text-gray-500" />
-                    </div>
-                    <h3 className="text-xl font-bold text-white mb-2">No events found</h3>
-                    <p className="text-gray-400">Try adjusting your search or filters.</p>
-                    <button 
-                      onClick={clearFilters}
-                      className="mt-6 text-lumina-glow hover:text-white transition-colors text-sm font-medium"
-                    >
-                      Clear all filters
-                    </button>
-                </div>
-            )}
+              }
+            />
+            <Route
+              path="/my-events"
+              element={
+                <MyEvents
+                  wallet={wallet}
+                  connectWallet={connectWallet}
+                  onBuyTicket={handleBuyTicket}
+                  onViewEventDetails={(event) => {
+                    window.location.href = `/events/${event.id}`;
+                  }}
+                />
+              }
+            />
+            <Route
+              path="/events/:id"
+              element={
+                <EventDetails
+                  events={events}
+                  wallet={wallet}
+                  onBuyTicket={handleBuyTicket}
+                  onAddReview={handleAddReview}
+                />
+              }
+            />
+            <Route
+              path="/create"
+              element={
+                <CreateEvent
+                  onEventCreated={handleEventCreated}
+                  walletAddress={wallet.address}
+                />
+              }
+            />
+            <Route
+              path="/dashboard"
+              element={
+                <Dashboard
+                  tickets={tickets.filter(t => t.ownerAddress === wallet.address)}
+                  events={events}
+                  onTicketUse={handleTicketUse}
+                  onTransfer={handleTransferTicket}
+                />
+              }
+            />
+          </Routes>
+        </main>
+
+        {/* Simple Footer */}
+        <footer className="border-t border-white/5 py-10 mt-20 bg-lumina-card">
+          <div className="max-w-7xl mx-auto px-4 text-center">
+              <p className="text-gray-500 text-sm">© 2024 Lumina Decentralized Ticketing. Built on Ethereum.</p>
           </div>
-        )}
-
-        {/* MY EVENTS VIEW */}
-        {view === ViewState.MY_EVENTS && (
-          <div className="max-w-7xl mx-auto px-4 py-12">
-            <h2 className="text-3xl font-display font-bold mb-8">My Organized Events</h2>
-            
-            {!wallet.isConnected ? (
-              <div className="flex flex-col items-center justify-center py-20 text-center bg-lumina-card border border-white/5 rounded-2xl">
-                <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mb-6">
-                   <Wallet className="h-8 w-8 text-lumina-accent" />
-                </div>
-                <h3 className="text-xl font-bold text-white mb-2">Wallet Not Connected</h3>
-                <p className="text-gray-400 mb-6 max-w-sm">Connect your wallet to view and manage the events you have organized.</p>
-                <button 
-                  onClick={connectWallet}
-                  className="px-6 py-3 rounded-full bg-lumina-accent hover:bg-violet-600 text-white font-medium transition-all"
-                >
-                  Connect Wallet
-                </button>
-              </div>
-            ) : (
-              <>
-                {events.filter(e => e.organizer === wallet.address).length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {events
-                      .filter(e => e.organizer === wallet.address)
-                      .map(event => (
-                        <EventCard 
-                          key={event.id} 
-                          event={event} 
-                          onBuy={handleBuyTicket}
-                          onClick={() => handleViewEventDetails(event)}
-                        />
-                      ))
-                    }
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center py-20 text-center bg-lumina-card border border-white/5 rounded-2xl">
-                    <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mb-6">
-                       <CalendarIcon className="h-8 w-8 text-gray-500" />
-                    </div>
-                    <h3 className="text-xl font-bold text-white mb-2">No Events Created</h3>
-                    <p className="text-gray-400 mb-6">You haven't organized any events yet.</p>
-                    <button 
-                      onClick={() => setView(ViewState.CREATE)}
-                      className="px-6 py-3 rounded-full bg-white text-lumina-dark hover:bg-gray-200 font-bold transition-all"
-                    >
-                      Create Your First Event
-                    </button>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        )}
-
-        {view === ViewState.EVENT_DETAILS && selectedEvent && (
-          <EventDetails 
-            event={selectedEvent} 
-            onBack={() => setView(ViewState.EXPLORE)}
-            onBuy={handleBuyTicket}
-            onAddReview={handleAddReview}
-            walletIsConnected={wallet.isConnected}
-          />
-        )}
-
-        {view === ViewState.CREATE && (
-          <CreateEvent 
-             onEventCreated={handleEventCreated} 
-             walletAddress={wallet.address}
-          />
-        )}
-
-        {view === ViewState.DASHBOARD && (
-          <Dashboard 
-            tickets={tickets.filter(t => t.ownerAddress === wallet.address)}
-            events={events} 
-            onTicketUse={handleTicketUse}
-            onTransfer={handleTransferTicket}
-          />
-        )}
-      </main>
-
-      {/* Simple Footer */}
-      <footer className="border-t border-white/5 py-10 mt-20 bg-lumina-card">
-        <div className="max-w-7xl mx-auto px-4 text-center">
-            <p className="text-gray-500 text-sm">© 2024 Lumina Decentralized Ticketing. Built on Ethereum.</p>
-        </div>
-      </footer>
-    </div>
+        </footer>
+      </div>
+    </Router>
   );
 };
 

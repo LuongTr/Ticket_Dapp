@@ -1,23 +1,23 @@
 import React from 'react';
-import { ViewState, WalletState } from '../types';
+import { Link, useLocation } from 'react-router-dom';
+import { WalletState } from '../types';
 import { Hexagon, Wallet, Menu, X } from 'lucide-react';
 
 interface NavbarProps {
-  currentView: ViewState;
-  changeView: (view: ViewState) => void;
   wallet: WalletState;
   connectWallet: () => void;
 }
 
-const Navbar: React.FC<NavbarProps> = ({ currentView, changeView, wallet, connectWallet }) => {
+const Navbar: React.FC<NavbarProps> = ({ wallet, connectWallet }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+  const location = useLocation();
 
   const navLinks = [
-    { label: 'Home', view: ViewState.HOME },
-    { label: 'Explore', view: ViewState.EXPLORE },
-    { label: 'My Events', view: ViewState.MY_EVENTS },
-    { label: 'Create Event', view: ViewState.CREATE },
-    { label: 'My Tickets', view: ViewState.DASHBOARD },
+    { label: 'Home', path: '/' },
+    { label: 'Explore', path: '/explore' },
+    { label: 'My Events', path: '/my-events' },
+    { label: 'Create Event', path: '/create' },
+    { label: 'My Tickets', path: '/dashboard' },
   ];
 
   return (
@@ -26,7 +26,7 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, changeView, wallet, connec
         <div className="flex items-center justify-between h-20">
           
           {/* Logo */}
-          <div className="flex items-center cursor-pointer group" onClick={() => changeView(ViewState.HOME)}>
+          <Link to="/" className="flex items-center cursor-pointer group">
             <div className="relative">
               <div className="absolute inset-0 bg-lumina-glow blur-lg opacity-40 group-hover:opacity-60 transition-opacity"></div>
               <Hexagon className="relative h-8 w-8 text-white fill-white/10" strokeWidth={1.5} />
@@ -34,23 +34,23 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, changeView, wallet, connec
             <span className="ml-3 text-xl font-display font-bold tracking-tight text-white">
               LUMINA
             </span>
-          </div>
+          </Link>
 
           {/* Desktop Nav */}
           <div className="hidden md:block">
             <div className="flex items-baseline space-x-8">
               {navLinks.map((link) => (
-                <button
+                <Link
                   key={link.label}
-                  onClick={() => changeView(link.view)}
+                  to={link.path}
                   className={`px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
-                    currentView === link.view
+                    location.pathname === link.path
                       ? 'text-white bg-white/10'
                       : 'text-gray-400 hover:text-white hover:bg-white/5'
                   }`}
                 >
                   {link.label}
-                </button>
+                </Link>
               ))}
             </div>
           </div>
@@ -91,20 +91,18 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, changeView, wallet, connec
         <div className="md:hidden bg-lumina-card border-b border-white/5">
           <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
             {navLinks.map((link) => (
-              <button
+              <Link
                 key={link.label}
-                onClick={() => {
-                  changeView(link.view);
-                  setIsMobileMenuOpen(false);
-                }}
+                to={link.path}
+                onClick={() => setIsMobileMenuOpen(false)}
                 className={`block w-full text-left px-3 py-2 rounded-md text-base font-medium ${
-                  currentView === link.view
+                  location.pathname === link.path
                     ? 'text-white bg-white/10'
                     : 'text-gray-400 hover:text-white hover:bg-white/5'
                 }`}
               >
                 {link.label}
-              </button>
+              </Link>
             ))}
             <button
               onClick={() => {
