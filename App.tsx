@@ -273,7 +273,6 @@ const App: React.FC = () => {
               path="/events/:id"
               element={
                 <EventDetails
-                  events={events}
                   wallet={wallet}
                   onBuyTicket={handleBuyTicket}
                   onAddReview={handleAddReview}

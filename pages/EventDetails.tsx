@@ -1,40 +1,82 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { NftEvent, WalletState } from '../types';
-import { ArrowLeft, Calendar, MapPin, Tag, User, Share2, Ticket as TicketIcon, Clock, ShieldCheck, CalendarPlus, Download, ExternalLink, Star, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Calendar, MapPin, Tag, User, Share2, Ticket as TicketIcon, Clock, ShieldCheck, CalendarPlus, Download, ExternalLink, Star, MessageSquare, Loader2, AlertCircle } from 'lucide-react';
+import { contractService } from '../src/services/contractService';
 
 interface EventDetailsProps {
-  events: NftEvent[];
   wallet: WalletState;
   onBuyTicket: (event: NftEvent) => void;
   onAddReview: (eventId: string, rating: number, comment: string) => void;
 }
 
-const EventDetails: React.FC<EventDetailsProps> = ({ events, wallet, onBuyTicket, onAddReview }) => {
+const EventDetails: React.FC<EventDetailsProps> = ({ wallet, onBuyTicket, onAddReview }) => {
   const { id } = useParams<{ id: string }>();
   const [showCalendarOptions, setShowCalendarOptions] = useState(false);
   const calendarRef = useRef<HTMLDivElement>(null);
+
+  // Event data state
+  const [event, setEvent] = useState<NftEvent | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Review form state
   const [userRating, setUserRating] = useState(5);
   const [userComment, setUserComment] = useState('');
 
-  // Find the event by ID
-  const event = events.find(e => e.id === id);
+  // Fetch event data from blockchain
+  useEffect(() => {
+    const fetchEvent = async () => {
+      if (!id) return;
 
-  // If event not found, could show error or redirect
-  if (!event) {
-    return (
-      <div className="min-h-screen bg-lumina-dark text-white flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold mb-4">Event Not Found</h2>
-          <Link to="/explore" className="text-lumina-glow hover:text-white">
-            Back to Explore
-          </Link>
-        </div>
-      </div>
-    );
-  }
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Check MetaMask connection
+        if (!window.ethereum) {
+          setError('MetaMask not detected. Please install MetaMask to view events.');
+          return;
+        }
+
+        // Check if on Sepolia network
+        const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+        if (chainId !== '0xaa36a7') {
+          setError('Please switch to Sepolia testnet in MetaMask to view events.');
+          return;
+        }
+
+        // Initialize contract service and fetch event
+        await contractService.initializeReadOnly();
+        const eventData = await contractService.getEvent(parseInt(id));
+
+        // Convert to NftEvent format
+        const formattedEvent: NftEvent = {
+          id: eventData.id,
+          title: eventData.title,
+          description: eventData.description,
+          date: eventData.date,
+          location: eventData.location,
+          priceETH: parseFloat(eventData.priceETH),
+          imageUrl: eventData.imageUrl,
+          organizer: eventData.organizer,
+          totalTickets: eventData.totalTickets,
+          soldTickets: eventData.soldTickets,
+          category: 'Other', // Default category since contract doesn't store it
+          reviews: [] // Reviews are handled off-chain
+        };
+
+        setEvent(formattedEvent);
+      } catch (err) {
+        console.error('Failed to fetch event:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load event data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEvent();
+  }, [id]);
 
   // Scroll to top on mount
   useEffect(() => {
@@ -51,6 +93,36 @@ const EventDetails: React.FC<EventDetailsProps> = ({ events, wallet, onBuyTicket
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-lumina-dark text-white flex items-center justify-center">
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <Loader2 className="h-12 w-12 animate-spin text-lumina-glow mb-4" />
+          <h3 className="text-xl font-bold text-white mb-2">Loading Event</h3>
+          <p className="text-gray-400">Fetching event data from the blockchain...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error || !event) {
+    return (
+      <div className="min-h-screen bg-lumina-dark text-white flex items-center justify-center">
+        <div className="text-center">
+          <AlertCircle className="h-12 w-12 text-red-500 mb-4 mx-auto" />
+          <h2 className="text-2xl font-bold mb-4">{error ? 'Error Loading Event' : 'Event Not Found'}</h2>
+          <p className="text-red-400 mb-6">{error || 'The event could not be found on the blockchain.'}</p>
+          <Link to="/explore" className="inline-flex items-center px-6 py-3 bg-lumina-glow text-white rounded-lg hover:bg-lumina-glow/80 transition-colors">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Explore
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   const percentageSold = Math.round((event.soldTickets / event.totalTickets) * 100);
   const isSoldOut = event.soldTickets >= event.totalTickets;
@@ -125,6 +197,22 @@ END:VCALENDAR`;
     }
   };
 
+  // Helper function to truncate Ethereum addresses
+  const truncateAddress = (address: string) => {
+    if (address.length <= 12) return address;
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  };
+
+  // Copy address to clipboard
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      // You could add a toast notification here
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-lumina-dark pb-20 animate-in fade-in duration-500">
       
@@ -192,18 +280,24 @@ END:VCALENDAR`;
             {/* Description */}
             <div className="bg-lumina-card border border-white/5 rounded-3xl p-8">
               <h3 className="text-2xl font-bold text-white mb-4">About this Event</h3>
-              <p className="text-gray-400 text-lg leading-relaxed whitespace-pre-wrap">
+              <div className="text-gray-400 text-lg leading-relaxed whitespace-pre-line break-words overflow-wrap-anywhere">
                 {event.description}
-              </p>
+              </div>
               
               <div className="mt-8 pt-8 border-t border-white/5 grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div className="flex items-start space-x-3">
                   <div className="p-2 bg-white/5 rounded-lg">
                     <User className="h-5 w-5 text-gray-400" />
                   </div>
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <p className="text-sm text-gray-500 mb-1">Organizer</p>
-                    <p className="font-mono text-lumina-glow">{event.organizer}</p>
+                    <button
+                      onClick={() => copyToClipboard(event.organizer)}
+                      className="font-mono text-lumina-glow hover:text-white transition-colors text-left break-all"
+                      title="Click to copy full address"
+                    >
+                      {truncateAddress(event.organizer)}
+                    </button>
                   </div>
                 </div>
                 <div className="flex items-start space-x-3">

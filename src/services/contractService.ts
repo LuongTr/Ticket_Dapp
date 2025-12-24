@@ -114,9 +114,10 @@ export class ContractService {
     if (!this.contract) throw new Error('Contract not initialized');
 
     try {
-      const eventData = await (this.contract as any).getEvent(eventId);
+      // Use the events mapping getter instead of getEvent function
+      const eventData = await (this.contract as any).events(eventId);
 
-      // Parse the struct data
+      // Parse the struct data - same format as events mapping
       const [
         eventIdReturned,
         title,
@@ -264,7 +265,7 @@ export class ContractService {
 
     try {
       // Get event details to calculate price
-      const eventData = await (this.contract as any).getEvent(eventId);
+      const eventData = await (this.contract as any).events(eventId);
       const priceWei = eventData[5]; // priceETH is at index 5 in the struct
 
       const totalPrice = priceWei * BigInt(quantity);

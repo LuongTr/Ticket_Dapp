@@ -190,7 +190,7 @@ const Explore: React.FC<ExploreProps> = ({ wallet, onBuyTicket, onViewEventDetai
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <Loader2 className="h-12 w-12 animate-spin text-lumina-glow mb-4" />
           <h3 className="text-xl font-bold text-white mb-2">Loading Events</h3>
-          <p className="text-gray-400">Fetching events from the blockchain...</p>
+          {/* <p className="text-gray-400">Fetching events from the blockchain...</p> */}
         </div>
       )}
 
