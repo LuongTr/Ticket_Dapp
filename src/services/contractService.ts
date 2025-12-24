@@ -189,14 +189,22 @@ export class ContractService {
         console.log(`🔎 Attempting to fetch event ID: ${i}`);
 
         try {
-          console.log(`📞 Calling getEvent(${i})...`);
+          console.log(`📞 Calling events(${i}) mapping getter...`);
 
-          // Try the getEvent call with proper error handling
-          const eventData = await (this.contract as any).getEvent(i);
-          console.log(`✅ SUCCESS: getEvent(${i}) returned:`, eventData);
+          // Use the events mapping getter instead of getEvent function
+          const eventData = await (this.contract as any).events(i);
+          console.log(`✅ SUCCESS: events(${i}) returned:`, eventData);
+          console.log(`📊 eventData type:`, typeof eventData);
+          console.log(`📊 eventData isArray:`, Array.isArray(eventData));
+          console.log(`📊 eventData length:`, eventData?.length);
 
           // Parse the struct data - ensure we have the right format
           if (eventData && Array.isArray(eventData) && eventData.length >= 13) {
+            console.log(`🔍 Parsing struct fields:`);
+            console.log(`  eventData[0] (eventId):`, eventData[0], typeof eventData[0]);
+            console.log(`  eventData[1] (title):`, eventData[1], typeof eventData[1]);
+            console.log(`  eventData[5] (priceETH):`, eventData[5], typeof eventData[5]);
+
             const parsedEvent = {
               id: i.toString(),
               title: eventData[1]?.toString() || '',
@@ -223,8 +231,9 @@ export class ContractService {
             });
           }
         } catch (getEventError) {
-          console.log(`❌ getEvent(${i}) failed:`, getEventError.message);
+          console.log(`❌ events(${i}) mapping getter failed:`, getEventError.message);
           console.log(`❌ Error details:`, getEventError);
+          console.log(`❌ Error stack:`, getEventError.stack);
 
           // Check if it's a specific ethers error
           if (getEventError.message.includes('key.format')) {

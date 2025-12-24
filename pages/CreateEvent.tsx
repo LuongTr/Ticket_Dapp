@@ -273,7 +273,14 @@ const CreateEvent: React.FC<CreateEventProps> = ({ onEventCreated, walletAddress
                   type="number"
                   step="0.01"
                   value={formData.priceETH}
-                  onChange={(e) => setFormData({...formData, priceETH: parseFloat(e.target.value)})}
+                  onChange={(e) => {
+                    const newPrice = parseFloat(e.target.value);
+                    setFormData({...formData, priceETH: newPrice});
+                    // Also update the first ticket type price
+                    setTicketTypes(prev => prev.map((type, index) =>
+                      index === 0 ? {...type, price: newPrice} : type
+                    ));
+                  }}
                   className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-lumina-glow/50"
                   required
                 />
