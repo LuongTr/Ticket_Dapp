@@ -6,11 +6,13 @@ import { contractService } from '../src/services/contractService';
 
 interface EventDetailsProps {
   wallet: WalletState;
-  onBuyTicket: (event: NftEvent) => void;
+  onBuyTicket: (event: NftEvent, onSuccess?: () => void) => void;
   onAddReview: (eventId: string, rating: number, comment: string) => void;
+  mintingEventId: string | null;
+  onMintSuccess: () => void;
 }
 
-const EventDetails: React.FC<EventDetailsProps> = ({ wallet, onBuyTicket, onAddReview }) => {
+const EventDetails: React.FC<EventDetailsProps> = ({ wallet, onBuyTicket, onAddReview, mintingEventId, onMintSuccess }) => {
   const { id } = useParams<{ id: string }>();
   const [showCalendarOptions, setShowCalendarOptions] = useState(false);
   const calendarRef = useRef<HTMLDivElement>(null);
@@ -533,16 +535,17 @@ END:VCALENDAR`;
                 </div>
 
                 <button
-                  onClick={() => onBuyTicket(event)}
-                  disabled={isSoldOut}
+                  onClick={() => onBuyTicket(event, onMintSuccess)}
+                  disabled={isSoldOut || mintingEventId !== null}
                   className={`w-full py-4 rounded-xl font-bold text-lg shadow-lg flex items-center justify-center transition-all duration-300 ${
-                    isSoldOut
+                    isSoldOut || mintingEventId !== null
                       ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
                       : 'bg-white text-lumina-dark hover:bg-gray-200 hover:shadow-white/10'
                   }`}
                 >
-                   {isSoldOut ? 'Sold Out' : 'Mint Ticket Now'}
-                   {!isSoldOut && <TicketIcon className="ml-2 h-5 w-5" />}
+                   {isSoldOut ? 'Sold Out' : mintingEventId === event.id ? 'Ticket is minting...' : mintingEventId ? 'Minting in progress...' : 'Mint Ticket Now'}
+                   {!isSoldOut && mintingEventId === null && <TicketIcon className="ml-2 h-5 w-5" />}
+                   {mintingEventId === event.id && <Loader2 className="ml-2 h-5 w-5 animate-spin" />}
                 </button>
 
                 <p className="text-xs text-gray-500 text-center mt-4">

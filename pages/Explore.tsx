@@ -6,11 +6,13 @@ import { contractService } from '../src/services/contractService';
 
 interface ExploreProps {
   wallet: WalletState;
-  onBuyTicket: (event: NftEvent) => void;
+  onBuyTicket: (event: NftEvent, onSuccess?: () => void) => void;
   onViewEventDetails: (event: NftEvent) => void;
+  mintingEventId?: string | null;
+  onMintSuccess?: () => void;
 }
 
-const Explore: React.FC<ExploreProps> = ({ wallet, onBuyTicket, onViewEventDetails }) => {
+const Explore: React.FC<ExploreProps> = ({ wallet, onBuyTicket, onViewEventDetails, mintingEventId, onMintSuccess }) => {
   const [events, setEvents] = useState<NftEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -87,6 +89,17 @@ const Explore: React.FC<ExploreProps> = ({ wallet, onBuyTicket, onViewEventDetai
     setSelectedCategory('All');
     setDateRange({ start: '', end: '' });
     setPriceRange({ min: '', max: '' });
+  };
+
+  // Refresh events data from blockchain
+  const refreshEvents = async () => {
+    try {
+      await contractService.initializeReadOnly();
+      const blockchainEvents = await contractService.getAllEvents();
+      setEvents(blockchainEvents);
+    } catch (err) {
+      console.error('Failed to refresh events:', err);
+    }
   };
 
   return (
@@ -235,6 +248,7 @@ const Explore: React.FC<ExploreProps> = ({ wallet, onBuyTicket, onViewEventDetai
                 event={event}
                 onBuy={onBuyTicket}
                 onClick={() => onViewEventDetails(event)}
+                isMinting={mintingEventId === event.id}
               />
             ))}
           </div>

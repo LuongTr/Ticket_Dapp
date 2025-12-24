@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
 import { NftEvent } from '../types';
-import { Calendar, MapPin, Tag, Image as ImageIcon } from 'lucide-react';
+import { Calendar, MapPin, Tag, Image as ImageIcon, Loader2 } from 'lucide-react';
 
 interface EventCardProps {
   event: NftEvent;
-  onBuy: (event: NftEvent) => void;
+  onBuy: (event: NftEvent, onSuccess?: () => void) => void;
   onClick?: () => void;
+  isMinting?: boolean;
 }
 
-const EventCard: React.FC<EventCardProps> = ({ event, onBuy, onClick }) => {
+const EventCard: React.FC<EventCardProps> = ({ event, onBuy, onClick, isMinting = false }) => {
   const [imageLoaded, setImageLoaded] = useState(false);
 
   return (
@@ -69,14 +70,26 @@ const EventCard: React.FC<EventCardProps> = ({ event, onBuy, onClick }) => {
             </div>
           </div>
           
-          <button 
+          <button
             onClick={(e) => {
               e.stopPropagation();
               onBuy(event);
             }}
-            className="px-5 py-2 rounded-lg bg-white text-black font-semibold text-sm hover:bg-gray-200 transition-colors z-30"
+            disabled={isMinting}
+            className={`px-5 py-2 rounded-lg font-semibold text-sm transition-colors z-30 flex items-center ${
+              isMinting
+                ? 'bg-gray-600 text-gray-300 cursor-not-allowed'
+                : 'bg-white text-black hover:bg-gray-200'
+            }`}
           >
-            Mint Ticket
+            {isMinting ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Minting
+              </>
+            ) : (
+              'Mint Ticket'
+            )}
           </button>
         </div>
         

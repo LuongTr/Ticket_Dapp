@@ -8,6 +8,7 @@ import CreateEvent from './pages/CreateEvent';
 import Dashboard from './pages/Dashboard';
 import EventDetails from './pages/EventDetails';
 import { WalletState, NftEvent, Ticket, Review } from './types';
+import { contractService } from './src/services/contractService';
 
 // Mock Data
 const MOCK_EVENTS: NftEvent[] = [
@@ -86,6 +87,7 @@ const App: React.FC = () => {
   });
   const [events, setEvents] = useState<NftEvent[]>(MOCK_EVENTS);
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [mintingEventId, setMintingEventId] = useState<string | null>(null);
 
   // Helper to fetch balance and update wallet state
   const updateWalletState = async (address: string) => {
@@ -164,35 +166,68 @@ const App: React.FC = () => {
     return () => {};
   }, []);
 
-  const handleBuyTicket = (event: NftEvent) => {
+  const handleBuyTicket = async (event: NftEvent, onSuccess?: () => void) => {
     if (!wallet.isConnected) {
       alert("Please connect your wallet first.");
       connectWallet();
       return;
     }
 
-    if (wallet.balanceETH < event.priceETH) {
-      alert("Insufficient funds in your wallet.");
-      return;
+    setMintingEventId(event.id);
+
+    try {
+      // Initialize contract with MetaMask signer
+      await contractService.initializeWithMetaMask();
+
+      // Mint ticket on the blockchain
+      const eventId = parseInt(event.id);
+      const ticketType = 1; // Default to first ticket type
+      const quantity = 1; // Mint one ticket
+
+      console.log(`Minting ${quantity} ticket(s) for event ${eventId}, type ${ticketType}...`);
+
+      await contractService.mintTickets(eventId, ticketType, quantity);
+
+      // Update local state (ticket will be tracked on-chain)
+      const newTicket: Ticket = {
+        id: `tkt-${Date.now()}`, // This would ideally come from the contract event
+        eventId: event.id,
+        ownerAddress: wallet.address!,
+        purchaseDate: new Date().toISOString(),
+        qrCodeData: `lumina://${event.id}/${Date.now()}`,
+        isUsed: false
+      };
+
+      setTickets([...tickets, newTicket]);
+
+      // Refresh wallet balance
+      if (wallet.address) {
+        await updateWalletState(wallet.address);
+      }
+
+      // Call success callback to refresh event data
+      if (onSuccess) {
+        onSuccess();
+      }
+
+      alert(`🎉 Successfully minted ticket for ${event.title}!\n\nYour NFT ticket has been added to your wallet. Check your Dashboard to view it.`);
+
+    } catch (error) {
+      console.error('Failed to mint ticket:', error);
+
+      // Handle specific error types
+      if (error.message?.includes('insufficient funds')) {
+        alert('❌ Transaction failed: Insufficient funds in your wallet.');
+      } else if (error.message?.includes('user rejected')) {
+        alert('❌ Transaction cancelled: You rejected the transaction.');
+      } else if (error.message?.includes('network')) {
+        alert('❌ Network error: Please check your connection and try again.');
+      } else {
+        alert(`❌ Failed to mint ticket: ${error.message || 'Unknown error'}`);
+      }
+    } finally {
+      setMintingEventId(null);
     }
-
-    const newTicket: Ticket = {
-      id: `tkt-${Date.now()}`,
-      eventId: event.id,
-      ownerAddress: wallet.address!,
-      purchaseDate: new Date().toISOString(),
-      qrCodeData: `lumina://${event.id}/${Date.now()}`,
-      isUsed: false
-    };
-
-    setTickets([...tickets, newTicket]);
-    
-    // Update event sold count
-    setEvents(events.map(e => 
-      e.id === event.id ? { ...e, soldTickets: e.soldTickets + 1 } : e
-    ));
-
-    alert(`Successfully minted ticket for ${event.title}!`);
   };
 
   const handleEventCreated = (newEvent: NftEvent) => {
@@ -248,10 +283,15 @@ const App: React.FC = () => {
               element={
                 <Explore
                   wallet={wallet}
-                  onBuyTicket={handleBuyTicket}
+                  onBuyTicket={(event, onSuccess) => handleBuyTicket(event, onSuccess)}
                   onViewEventDetails={(event) => {
                     // Navigate to event details page
                     window.location.href = `/events/${event.id}`;
+                  }}
+                  mintingEventId={mintingEventId}
+                  onMintSuccess={() => {
+                    // This will trigger a page reload to refresh all data
+                    window.location.reload();
                   }}
                 />
               }
@@ -276,6 +316,12 @@ const App: React.FC = () => {
                   wallet={wallet}
                   onBuyTicket={handleBuyTicket}
                   onAddReview={handleAddReview}
+                  mintingEventId={mintingEventId}
+                  onMintSuccess={() => {
+                    // This callback will be called to refresh event data
+                    // For now, we'll just reload the page to refresh all data
+                    window.location.reload();
+                  }}
                 />
               }
             />
