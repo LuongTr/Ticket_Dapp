@@ -128,6 +128,11 @@ const App: React.FC = () => {
     }
   };
 
+  // Disconnect Wallet
+  const disconnectWallet = () => {
+    setWallet({ isConnected: false, address: null, balanceETH: 0 });
+  };
+
   // Check connection on mount and listen for changes
   useEffect(() => {
     const checkConnection = async () => {
@@ -273,6 +278,7 @@ const App: React.FC = () => {
         <Navbar
           wallet={wallet}
           connectWallet={connectWallet}
+          disconnectWallet={disconnectWallet}
         />
 
         <main className="pt-20">
@@ -283,16 +289,12 @@ const App: React.FC = () => {
               element={
                 <Explore
                   wallet={wallet}
-                  onBuyTicket={(event, onSuccess) => handleBuyTicket(event, onSuccess)}
+                  onBuyTicket={handleBuyTicket}
                   onViewEventDetails={(event) => {
                     // Navigate to event details page
                     window.location.href = `/events/${event.id}`;
                   }}
                   mintingEventId={mintingEventId}
-                  onMintSuccess={() => {
-                    // This will trigger a page reload to refresh all data
-                    window.location.reload();
-                  }}
                 />
               }
             />
@@ -338,10 +340,7 @@ const App: React.FC = () => {
               path="/dashboard"
               element={
                 <Dashboard
-                  tickets={tickets.filter(t => t.ownerAddress === wallet.address)}
-                  events={events}
-                  onTicketUse={handleTicketUse}
-                  onTransfer={handleTransferTicket}
+                  wallet={wallet}
                 />
               }
             />

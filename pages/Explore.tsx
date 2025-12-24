@@ -9,10 +9,9 @@ interface ExploreProps {
   onBuyTicket: (event: NftEvent, onSuccess?: () => void) => void;
   onViewEventDetails: (event: NftEvent) => void;
   mintingEventId?: string | null;
-  onMintSuccess?: () => void;
 }
 
-const Explore: React.FC<ExploreProps> = ({ wallet, onBuyTicket, onViewEventDetails, mintingEventId, onMintSuccess }) => {
+const Explore: React.FC<ExploreProps> = ({ wallet, onBuyTicket, onViewEventDetails, mintingEventId }) => {
   const [events, setEvents] = useState<NftEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -246,7 +245,12 @@ const Explore: React.FC<ExploreProps> = ({ wallet, onBuyTicket, onViewEventDetai
               <EventCard
                 key={event.id}
                 event={event}
-                onBuy={onBuyTicket}
+                onBuy={(event, onSuccess) => onBuyTicket(event, () => {
+                  // Call refreshEvents after successful minting
+                  refreshEvents();
+                  // Also call the original onSuccess if provided
+                  if (onSuccess) onSuccess();
+                })}
                 onClick={() => onViewEventDetails(event)}
                 isMinting={mintingEventId === event.id}
               />

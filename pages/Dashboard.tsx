@@ -1,19 +1,22 @@
-import React, { useState } from 'react';
-import { Ticket, NftEvent } from '../types';
-import { QrCode, Ticket as TicketIcon, Clock, CheckCircle2, XCircle, X, ScanLine, Check, Send, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Ticket, NftEvent, WalletState } from '../types';
+import { QrCode, Ticket as TicketIcon, Clock, CheckCircle2, XCircle, X, ScanLine, Check, Send, AlertCircle, Loader2, Wallet } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { contractService } from '../src/services/contractService';
 
 interface DashboardProps {
-  tickets: Ticket[];
-  events: NftEvent[];
-  onTicketUse: (id: string) => void;
-  onTransfer: (ticketId: string, toAddress: string) => void;
+  wallet: WalletState;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ tickets, events, onTicketUse, onTransfer }) => {
+const Dashboard: React.FC<DashboardProps> = ({ wallet }) => {
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [events, setEvents] = useState<NftEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
-  
+
   // Transfer State
   const [transferTicket, setTransferTicket] = useState<Ticket | null>(null);
   const [recipientAddress, setRecipientAddress] = useState('');
@@ -37,26 +40,125 @@ const Dashboard: React.FC<DashboardProps> = ({ tickets, events, onTicketUse, onT
 
   const COLORS = ['#8b5cf6', '#06b6d4', '#ec4899', '#10b981', '#f59e0b'];
 
-  const handleVerify = () => {
+  // Fetch user's tickets from blockchain
+  useEffect(() => {
+    const fetchUserTickets = async () => {
+      if (!wallet.isConnected || !wallet.address) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Check MetaMask connection
+        if (!window.ethereum) {
+          setError('MetaMask not detected. Please install MetaMask to view your tickets.');
+          return;
+        }
+
+        // Check if on Sepolia network
+        const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+        if (chainId !== '0xaa36a7') {
+          setError('Please switch to Sepolia testnet in MetaMask to view your tickets.');
+          return;
+        }
+
+        // Initialize contract service
+        await contractService.initializeReadOnly();
+
+        // Get all events first
+        const allEvents = await contractService.getAllEvents();
+        setEvents(allEvents);
+
+        // Get tickets owned by user for each event
+        const userTickets: Ticket[] = [];
+
+        for (const event of allEvents) {
+          try {
+            const ticketIds = await contractService.getTicketsByOwner(wallet.address, parseInt(event.id));
+
+            for (const ticketId of ticketIds) {
+              try {
+                const ticketData = await contractService.getTicket(ticketId);
+
+                const ticket: Ticket = {
+                  id: ticketId.toString(),
+                  eventId: event.id,
+                  ownerAddress: wallet.address,
+                  purchaseDate: ticketData.purchaseDate,
+                  qrCodeData: `lumina://${event.id}/${ticketId}`,
+                  isUsed: ticketData.isUsed
+                };
+
+                userTickets.push(ticket);
+              } catch (ticketError) {
+                console.error(`Failed to fetch ticket ${ticketId}:`, ticketError);
+              }
+            }
+          } catch (eventError) {
+            console.error(`Failed to fetch tickets for event ${event.id}:`, eventError);
+          }
+        }
+
+        setTickets(userTickets);
+      } catch (err) {
+        console.error('Failed to fetch user tickets:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load tickets from blockchain');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserTickets();
+  }, [wallet.isConnected, wallet.address]);
+
+  const handleVerify = async () => {
     if (!selectedTicket) return;
     setIsVerifying(true);
-    // Simulate network delay
-    setTimeout(() => {
-        onTicketUse(selectedTicket.id);
-        setIsVerifying(false);
-        setSelectedTicket(null);
-    }, 1500);
+
+    try {
+      // Call smart contract to mark ticket as used
+      await contractService.initializeWithMetaMask();
+      await contractService.useTicket(parseInt(selectedTicket.id));
+
+      // Update local state
+      setTickets(prev => prev.map(t =>
+        t.id === selectedTicket.id ? { ...t, isUsed: true } : t
+      ));
+
+      setSelectedTicket(null);
+      alert('Ticket verified successfully!');
+    } catch (error) {
+      console.error('Failed to verify ticket:', error);
+      alert(`Failed to verify ticket: ${error.message || 'Unknown error'}`);
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
   const handleTransferConfirm = async () => {
     if (!transferTicket || !recipientAddress) return;
     setIsTransferring(true);
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    onTransfer(transferTicket.id, recipientAddress);
-    setIsTransferring(false);
-    setTransferTicket(null);
-    setRecipientAddress('');
+
+    try {
+      // Call smart contract to transfer ticket
+      await contractService.initializeWithMetaMask();
+      await contractService.transferTicket(parseInt(transferTicket.id), recipientAddress);
+
+      // Remove ticket from local state (it's no longer owned by user)
+      setTickets(prev => prev.filter(t => t.id !== transferTicket.id));
+
+      setTransferTicket(null);
+      setRecipientAddress('');
+      alert('Ticket transferred successfully!');
+    } catch (error) {
+      console.error('Failed to transfer ticket:', error);
+      alert(`Failed to transfer ticket: ${error.message || 'Unknown error'}`);
+    } finally {
+      setIsTransferring(false);
+    }
   };
 
   if (tickets.length === 0) {
@@ -213,7 +315,7 @@ const Dashboard: React.FC<DashboardProps> = ({ tickets, events, onTicketUse, onT
                     <div className="flex justify-between items-center p-4 bg-white/5 rounded-xl">
                         <span className="text-gray-400">Value (Est.)</span>
                         <span className="text-xl font-bold text-white">
-                             {tickets.reduce((acc, t) => acc + (getEventById(t.eventId)?.priceETH || 0), 0).toFixed(4)} ETH
+                             {tickets.reduce((acc, t) => acc + parseFloat(getEventById(t.eventId)?.priceETH || '0'), 0).toFixed(4)} ETH
                         </span>
                     </div>
                 </div>
