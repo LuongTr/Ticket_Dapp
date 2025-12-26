@@ -253,8 +253,8 @@ export class ContractService {
 
   // TICKET FUNCTIONS
 
-  // Mint tickets
-  async mintTickets(
+  // Buy tickets (public function for users)
+  async buyTickets(
     eventId: number,
     ticketType: number,
     quantity: number
@@ -269,7 +269,72 @@ export class ContractService {
       const priceWei = eventData[5]; // priceETH is at index 5 in the struct
 
       const totalPrice = priceWei * BigInt(quantity);
-      const buyerAddress = await this.signer.getAddress();
+
+      console.log(`Buying ${quantity} tickets for event ${eventId}, type ${ticketType}...`);
+      console.log(`Total price: ${totalPrice} wei`);
+
+      // Call the public buyTickets function
+      const tx = await (this.contract as any).buyTickets(
+        eventId,
+        ticketType,
+        quantity,
+        { value: totalPrice }
+      );
+
+      const receipt = await tx.wait();
+      console.log('Tickets purchased successfully:', receipt);
+    } catch (error) {
+      console.error('Failed to buy tickets:', error);
+      throw error;
+    }
+  }
+
+  // Airdrop tickets to listed addresses (organizer only)
+  async airdropTickets(
+    eventId: number,
+    ticketType: number,
+    recipients: string[]
+  ): Promise<void> {
+    if (!this.contract || !this.signer) {
+      throw new Error('Contract not initialized or signer not available');
+    }
+
+    try {
+      console.log(`Airdropping ${recipients.length} tickets for event ${eventId}, type ${ticketType}...`);
+      console.log('Recipients:', recipients);
+
+      // Call the airdrop function
+      const tx = await (this.contract as any).airdropTickets(
+        eventId,
+        ticketType,
+        recipients
+      );
+
+      const receipt = await tx.wait();
+      console.log('Airdrop completed successfully:', receipt);
+    } catch (error) {
+      console.error('Failed to airdrop tickets:', error);
+      throw error;
+    }
+  }
+
+  // Keep the old mintTickets function for organizer use (if needed)
+  async mintTickets(
+    eventId: number,
+    ticketType: number,
+    quantity: number,
+    buyerAddress: string
+  ): Promise<void> {
+    if (!this.contract || !this.signer) {
+      throw new Error('Contract not initialized or signer not available');
+    }
+
+    try {
+      // Get event details to calculate price
+      const eventData = await (this.contract as any).events(eventId);
+      const priceWei = eventData[5]; // priceETH is at index 5 in the struct
+
+      const totalPrice = priceWei * BigInt(quantity);
 
       const tx = await (this.contract as any).mintTickets(
         eventId,

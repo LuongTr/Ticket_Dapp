@@ -1,18 +1,19 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { NftEvent, WalletState } from '../types';
-import { ArrowLeft, Calendar, MapPin, Tag, User, Share2, Ticket as TicketIcon, Clock, ShieldCheck, CalendarPlus, Download, ExternalLink, Star, MessageSquare, Loader2, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Calendar, MapPin, Tag, User, Share2, Ticket as TicketIcon, Clock, ShieldCheck, CalendarPlus, Download, ExternalLink, Star, MessageSquare, Loader2, AlertCircle, Gift } from 'lucide-react';
 import { contractService } from '../src/services/contractService';
+import ReviewService, { Review, ReviewStats } from '../services/reviewService';
+import AirdropModal from '../components/AirdropModal';
 
 interface EventDetailsProps {
   wallet: WalletState;
   onBuyTicket: (event: NftEvent, onSuccess?: () => void) => void;
-  onAddReview: (eventId: string, rating: number, comment: string) => void;
   mintingEventId: string | null;
   onMintSuccess: () => void;
 }
 
-const EventDetails: React.FC<EventDetailsProps> = ({ wallet, onBuyTicket, onAddReview, mintingEventId, onMintSuccess }) => {
+const EventDetails: React.FC<EventDetailsProps> = ({ wallet, onBuyTicket, mintingEventId, onMintSuccess }) => {
   const { id } = useParams<{ id: string }>();
   const [showCalendarOptions, setShowCalendarOptions] = useState(false);
   const calendarRef = useRef<HTMLDivElement>(null);
@@ -22,9 +23,24 @@ const EventDetails: React.FC<EventDetailsProps> = ({ wallet, onBuyTicket, onAddR
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Review data state
+  const [fetchedReviews, setFetchedReviews] = useState<Review[]>([]);
+  const [reviewStats, setReviewStats] = useState<ReviewStats | null>(null);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [submittingReview, setSubmittingReview] = useState(false);
+
   // Review form state
   const [userRating, setUserRating] = useState(5);
   const [userComment, setUserComment] = useState('');
+  const [userReview, setUserReview] = useState<Review | null>(null);
+
+  // Edit state for individual reviews
+  const [editingReviewId, setEditingReviewId] = useState<string | null>(null);
+  const [editRating, setEditRating] = useState(5);
+  const [editComment, setEditComment] = useState('');
+
+  // Airdrop modal state
+  const [showAirdropModal, setShowAirdropModal] = useState(false);
 
   // Fetch event data from blockchain
   useEffect(() => {
@@ -96,6 +112,52 @@ const EventDetails: React.FC<EventDetailsProps> = ({ wallet, onBuyTicket, onAddR
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Fetch reviews when event is loaded
+  useEffect(() => {
+    const fetchReviews = async () => {
+      if (!id) return;
+
+      try {
+        setReviewsLoading(true);
+        const [reviewsData, statsData] = await Promise.all([
+          ReviewService.getReviews(parseInt(id)),
+          ReviewService.getReviewStats(parseInt(id))
+        ]);
+
+        setFetchedReviews(reviewsData);
+        setReviewStats(statsData);
+
+        // Find user's existing review if wallet is connected
+        if (wallet.isConnected && wallet.address) {
+          const userReview = reviewsData.find(review =>
+            review.userAddress?.toLowerCase() === wallet.address?.toLowerCase()
+          );
+          setUserReview(userReview || null);
+
+          // Pre-fill form with existing review data
+          if (userReview) {
+            setUserRating(userReview.rating);
+            setUserComment(userReview.comment);
+          } else {
+            // Reset to defaults if no existing review
+            setUserRating(5);
+            setUserComment('');
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch reviews:', error);
+        // Keep empty arrays as fallback
+        setFetchedReviews([]);
+        setReviewStats(null);
+        setUserReview(null);
+      } finally {
+        setReviewsLoading(false);
+      }
+    };
+
+    fetchReviews();
+  }, [id, wallet.isConnected, wallet.address]);
+
   // Loading state
   if (loading) {
     return (
@@ -129,16 +191,16 @@ const EventDetails: React.FC<EventDetailsProps> = ({ wallet, onBuyTicket, onAddR
   const percentageSold = Math.round((event.soldTickets / event.totalTickets) * 100);
   const isSoldOut = event.soldTickets >= event.totalTickets;
 
-  // Review Stats
-  const reviews = event.reviews || [];
-  const averageRating = reviews.length > 0
-    ? (reviews.reduce((acc, rev) => acc + rev.rating, 0) / reviews.length).toFixed(1)
+  // Use fetched reviews data
+  const reviews = fetchedReviews;
+  const averageRating = typeof reviewStats?.averageRating === 'number'
+    ? reviewStats.averageRating.toFixed(1)
     : '0.0';
 
-  // Calculate Rating Distribution
+  // Calculate Rating Distribution from stats
   const ratingDistribution = [5, 4, 3, 2, 1].map(star => {
-    const count = reviews.filter(r => r.rating === star).length;
-    const percentage = reviews.length > 0 ? (count / reviews.length) * 100 : 0;
+    const count = (reviewStats?.ratingDistribution && reviewStats.ratingDistribution[star]) || 0;
+    const percentage = reviewStats?.totalReviews ? (count / reviewStats.totalReviews) * 100 : 0;
     return { star, count, percentage };
   });
 
@@ -190,12 +252,60 @@ END:VCALENDAR`;
     setShowCalendarOptions(false);
   };
 
-  const handleSubmitReview = (e: React.FormEvent) => {
+  const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (userComment.trim()) {
-        onAddReview(event.id, userRating, userComment);
-        setUserComment('');
-        setUserRating(5);
+    if (!userComment.trim() || !wallet.isConnected) return;
+
+    try {
+      setSubmittingReview(true);
+
+      // Generate the message to sign
+      const message = ReviewService.generateReviewMessage(event.id, userReview ? 'update' : 'create');
+
+      // Sign the message with MetaMask
+      const signature = await window.ethereum.request({
+        method: 'personal_sign',
+        params: [message, wallet.address]
+      });
+
+      const requestData = {
+        eventId: event.id,
+        rating: userRating,
+        comment: userComment.trim(),
+        signature,
+        message
+      };
+
+      // Submit or update the review to the API
+      if (userReview) {
+        // Update existing review
+        await ReviewService.updateReview(userReview.id, requestData);
+      } else {
+        // Create new review
+        await ReviewService.submitReview(requestData);
+      }
+
+      // Refresh the reviews data
+      const [reviewsData, statsData] = await Promise.all([
+        ReviewService.getReviews(event.id),
+        ReviewService.getReviewStats(event.id)
+      ]);
+
+      setFetchedReviews(reviewsData);
+      setReviewStats(statsData);
+
+      // Find updated user review
+      const updatedUserReview = reviewsData.find(review =>
+        review.userAddress?.toLowerCase() === wallet.address?.toLowerCase()
+      );
+      setUserReview(updatedUserReview || null);
+
+    } catch (error) {
+      console.error('Failed to submit review:', error);
+      // You could add toast notification here for error
+      alert('Each user can review once.');
+    } finally {
+      setSubmittingReview(false);
     }
   };
 
@@ -214,6 +324,74 @@ END:VCALENDAR`;
       console.error('Failed to copy:', err);
     }
   };
+
+  // Handle edit review
+  const handleEditReview = (review: Review) => {
+    setEditingReviewId(review.id);
+    setEditRating(review.rating);
+    setEditComment(review.comment);
+  };
+
+  // Handle save edited review
+  const handleSaveEdit = async () => {
+    if (!editingReviewId || !wallet.isConnected) return;
+
+    try {
+      setSubmittingReview(true);
+
+      // Generate the message to sign
+      const message = ReviewService.generateReviewMessage(event.id, 'update');
+
+      // Sign the message with MetaMask
+      const signature = await window.ethereum.request({
+        method: 'personal_sign',
+        params: [message, wallet.address]
+      });
+
+      const requestData = {
+        eventId: event.id,
+        rating: editRating,
+        comment: editComment.trim(),
+        signature,
+        message
+      };
+
+      // Update the review
+      await ReviewService.updateReview(editingReviewId, requestData);
+
+      // Refresh the reviews data
+      const [reviewsData, statsData] = await Promise.all([
+        ReviewService.getReviews(event.id),
+        ReviewService.getReviewStats(event.id)
+      ]);
+
+      setFetchedReviews(reviewsData);
+      setReviewStats(statsData);
+
+      // Exit edit mode
+      setEditingReviewId(null);
+      setEditRating(5);
+      setEditComment('');
+
+    } catch (error) {
+      console.error('Failed to update review:', error);
+      alert('Failed to update review. Please try again.');
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
+  // Handle cancel edit
+  const handleCancelEdit = () => {
+    setEditingReviewId(null);
+    setEditRating(5);
+    setEditComment('');
+  };
+
+  // Generate ticket types data for airdrop modal
+  const ticketTypes = [
+    { id: 1, name: 'General Admission', available: Math.max(0, event.totalTickets - event.soldTickets) }
+  ];
 
   return (
     <div className="min-h-screen bg-lumina-dark pb-20 animate-in fade-in duration-500">
@@ -377,16 +555,23 @@ END:VCALENDAR`;
                    </div>
                </div>
 
-               {/* Review Form */}
+               {/* Review Form - Disabled when user already has a review */}
                <div className="mb-10">
                    {wallet.isConnected ? (
-                       <div className="bg-gradient-to-br from-white/5 to-transparent rounded-2xl p-6 border border-white/5">
-                           <form onSubmit={handleSubmitReview}>
-                               <h4 className="text-lg font-semibold text-white mb-4 flex items-center">
+                       <div className={`bg-gradient-to-br rounded-2xl p-6 border ${userReview ? 'bg-gray-800/50 border-gray-600/50' : 'from-white/5 to-transparent border-white/5'}`}>
+                           <div className="flex items-center justify-between mb-4">
+                               <h4 className="text-lg font-semibold text-white flex items-center">
                                    <span className="w-1 h-6 bg-lumina-accent rounded-full mr-3"></span>
-                                   Write a Review
+                                   {userReview ? 'You have already reviewed this event' : 'Write a Review'}
                                </h4>
-                               
+                               {userReview && (
+                                   <span className="text-xs text-gray-400 bg-gray-700/50 px-3 py-1 rounded-full">
+                                       Edit your review below
+                                   </span>
+                               )}
+                           </div>
+
+                           <form onSubmit={handleSubmitReview}>
                                <div className="mb-6">
                                    <label className="block text-sm text-gray-400 mb-3">Rate your experience</label>
                                    <div className="flex gap-2">
@@ -394,15 +579,16 @@ END:VCALENDAR`;
                                            <button
                                                key={star}
                                                type="button"
+                                               disabled={!!userReview}
                                                onClick={() => setUserRating(star)}
-                                               className="group focus:outline-none transition-transform hover:scale-110"
+                                               className="group focus:outline-none transition-transform hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
                                            >
-                                               <Star 
+                                               <Star
                                                    className={`h-8 w-8 transition-colors ${
-                                                       star <= userRating 
-                                                           ? 'text-yellow-400 fill-yellow-400 drop-shadow-[0_0_10px_rgba(250,204,21,0.5)]' 
+                                                       star <= userRating
+                                                           ? 'text-yellow-400 fill-yellow-400 drop-shadow-[0_0_10px_rgba(250,204,21,0.5)]'
                                                            : 'text-gray-600 group-hover:text-gray-500'
-                                                   }`} 
+                                                   }`}
                                                />
                                            </button>
                                        ))}
@@ -414,18 +600,20 @@ END:VCALENDAR`;
                                    <textarea
                                        value={userComment}
                                        onChange={(e) => setUserComment(e.target.value)}
-                                       placeholder="Share your thoughts about the event..."
-                                       className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-white placeholder-gray-600 focus:outline-none focus:border-lumina-glow/50 focus:ring-1 focus:ring-lumina-glow/20 transition-all h-32 resize-none"
-                                       required
+                                       placeholder={userReview ? "Edit your review below" : "Share your thoughts about the event..."}
+                                       disabled={!!userReview}
+                                       className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-white placeholder-gray-600 focus:outline-none focus:border-lumina-glow/50 focus:ring-1 focus:ring-lumina-glow/20 transition-all h-32 resize-none disabled:opacity-50 disabled:cursor-not-allowed"
+                                       required={!userReview}
                                    />
                                </div>
 
                                <div className="flex justify-end">
-                                   <button 
+                                   <button
                                        type="submit"
-                                       className="px-8 py-3 bg-white text-lumina-dark font-bold rounded-xl hover:bg-gray-200 transition-colors shadow-lg shadow-white/5"
+                                       disabled={submittingReview || !!userReview}
+                                       className="px-8 py-3 bg-gray-600 text-gray-400 font-bold rounded-xl cursor-not-allowed shadow-lg shadow-white/5 flex items-center gap-2"
                                    >
-                                       Submit Review
+                                       {userReview ? 'Use Edit Button Below' : 'Submit Review'}
                                    </button>
                                </div>
                            </form>
@@ -444,34 +632,107 @@ END:VCALENDAR`;
                {/* Reviews List */}
                <div className="space-y-6">
                    {reviews.length > 0 ? (
-                       reviews.map((review) => (
-                           <div key={review.id} className="group bg-white/5 hover:bg-white/10 border border-transparent hover:border-white/5 rounded-2xl p-6 transition-all duration-300">
-                               <div className="flex justify-between items-start mb-4">
-                                   <div className="flex items-center gap-4">
-                                       <div className="w-12 h-12 rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center text-sm font-bold text-white shadow-lg ring-2 ring-white/10">
-                                           {review.userAddress.slice(2, 4).toUpperCase()}
-                                       </div>
-                                       <div>
-                                           <p className="text-sm font-bold text-white font-mono tracking-wide">{review.userAddress}</p>
-                                           <div className="flex gap-0.5 mt-1">
-                                               {[...Array(5)].map((_, i) => (
-                                                   <Star 
-                                                       key={i} 
-                                                       className={`h-3 w-3 ${i < review.rating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-600'}`} 
-                                                   />
-                                               ))}
+                       reviews.map((review) => {
+                           const isEditing = editingReviewId === review.id;
+                           const isOwnReview = review.userAddress?.toLowerCase() === wallet.address?.toLowerCase();
+
+                           // Debug logging for edit button visibility
+                           if (isOwnReview) {
+                               console.log('Edit button should show for review:', review.id, 'User:', review.userAddress, 'Wallet:', wallet.address);
+                           }
+
+                           return (
+                               <div key={review.id} className="group bg-white/5 hover:bg-white/10 border border-transparent hover:border-white/5 rounded-2xl p-6 transition-all duration-300">
+                                   <div className="flex justify-between items-start mb-4">
+                                       <div className="flex items-center gap-4">
+                                           <div className="w-12 h-12 rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center text-sm font-bold text-white shadow-lg ring-2 ring-white/10">
+                                               {review.userAddress ? review.userAddress.slice(2, 4).toUpperCase() : '??'}
+                                           </div>
+                                           <div className="flex-1">
+                                               <p className="text-sm font-bold text-white font-mono tracking-wide">
+                                                   {review.userAddress ? truncateAddress(review.userAddress) : 'Unknown User'}
+                                                   {isOwnReview && <span className="ml-2 text-xs text-lumina-glow">(Your Review)</span>}
+                                               </p>
+                                               <div className="flex gap-0.5 mt-1">
+                                                   {isEditing ? (
+                                                       // Editable stars
+                                                       [1, 2, 3, 4, 5].map((star) => (
+                                                           <button
+                                                               key={star}
+                                                               type="button"
+                                                               onClick={() => setEditRating(star)}
+                                                               className="group focus:outline-none transition-transform hover:scale-110"
+                                                           >
+                                                               <Star
+                                                                   className={`h-3 w-3 transition-colors ${
+                                                                       star <= editRating
+                                                                           ? 'text-yellow-400 fill-yellow-400 drop-shadow-[0_0_10px_rgba(250,204,21,0.5)]'
+                                                                           : 'text-gray-600 group-hover:text-gray-500'
+                                                                   }`}
+                                                               />
+                                                           </button>
+                                                       ))
+                                                   ) : (
+                                                       // Display stars
+                                                       [...Array(5)].map((_, i) => (
+                                                           <Star
+                                                               key={i}
+                                                               className={`h-3 w-3 ${i < review.rating ? 'text-yellow-400 fill-yellow-400' : 'text-gray-600'}`}
+                                                           />
+                                                       ))
+                                                   )}
+                                               </div>
                                            </div>
                                        </div>
+                                       <div className="flex items-center gap-2">
+                                           {isOwnReview && !isEditing && (
+                                               <button
+                                                   onClick={() => handleEditReview(review)}
+                                                   className="text-xs px-3 py-1 bg-lumina-glow/20 text-lumina-glow rounded-full hover:bg-lumina-glow/30 transition-colors"
+                                               >
+                                                   Edit
+                                               </button>
+                                           )}
+                                           {isEditing && (
+                                               <div className="flex gap-1">
+                                                   <button
+                                                       onClick={handleSaveEdit}
+                                                       disabled={submittingReview}
+                                                       className="text-xs px-3 py-1 bg-green-600 text-white rounded-full hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                                   >
+                                                       {submittingReview ? 'Saving...' : 'Save'}
+                                                   </button>
+                                                   <button
+                                                       onClick={handleCancelEdit}
+                                                       className="text-xs px-3 py-1 bg-gray-600 text-white rounded-full hover:bg-gray-700 transition-colors"
+                                                   >
+                                                       Cancel
+                                                   </button>
+                                               </div>
+                                           )}
+                                           <span className="text-xs text-gray-500 bg-black/20 px-3 py-1 rounded-full border border-white/5">
+                                               {new Date(review.created_at).toLocaleDateString('en-GB')}
+                                           </span>
+                                       </div>
                                    </div>
-                                   <span className="text-xs text-gray-500 bg-black/20 px-3 py-1 rounded-full border border-white/5">
-                                       {new Date(review.timestamp).toLocaleDateString('en-GB')}
-                                   </span>
+                                   <div className="pl-16">
+                                       {isEditing ? (
+                                           <textarea
+                                               value={editComment}
+                                               onChange={(e) => setEditComment(e.target.value)}
+                                               className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-white placeholder-gray-600 focus:outline-none focus:border-lumina-glow/50 focus:ring-1 focus:ring-lumina-glow/20 transition-all resize-none"
+                                               rows={3}
+                                               placeholder="Update your review..."
+                                           />
+                                       ) : (
+                                           <p className="text-gray-300 text-sm leading-relaxed">
+                                               {review.comment}
+                                           </p>
+                                       )}
+                                   </div>
                                </div>
-                               <p className="text-gray-300 text-sm leading-relaxed pl-16">
-                                   {review.comment}
-                               </p>
-                           </div>
-                       ))
+                           );
+                       })
                    ) : (
                        <div className="text-center py-12 text-gray-500 bg-white/5 rounded-2xl border border-white/5 border-dashed">
                            <MessageSquare className="h-8 w-8 mx-auto mb-3 opacity-50" />
@@ -554,6 +815,17 @@ END:VCALENDAR`;
                 </p>
               </div>
 
+              {/* Airdrop Button for Organizers */}
+              {wallet.isConnected && event.organizer?.toLowerCase() === wallet.address?.toLowerCase() && (
+                <button
+                  onClick={() => setShowAirdropModal(true)}
+                  className="w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all duration-300 shadow-lg shadow-purple-500/25 flex items-center justify-center gap-2"
+                >
+                  <Gift className="h-5 w-5" />
+                  Airdrop Tickets
+                </button>
+              )}
+
               {/* Action Buttons Grid */}
               <div className="grid grid-cols-2 gap-3">
                   <button className="bg-lumina-card border border-white/5 rounded-2xl p-4 flex flex-col items-center justify-center cursor-pointer hover:bg-white/5 transition-colors group">
@@ -598,6 +870,15 @@ END:VCALENDAR`;
 
         </div>
       </div>
+
+      {/* Airdrop Modal */}
+      <AirdropModal
+        isOpen={showAirdropModal}
+        onClose={() => setShowAirdropModal(false)}
+        eventId={event.id}
+        eventTitle={event.title}
+        ticketTypes={ticketTypes}
+      />
     </div>
   );
 };

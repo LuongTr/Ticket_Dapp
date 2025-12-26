@@ -191,7 +191,7 @@ const App: React.FC = () => {
 
       console.log(`Minting ${quantity} ticket(s) for event ${eventId}, type ${ticketType}...`);
 
-      await contractService.mintTickets(eventId, ticketType, quantity);
+      await contractService.buyTickets(eventId, ticketType, quantity);
 
       // Update local state (ticket will be tracked on-chain)
       const newTicket: Ticket = {
@@ -317,7 +317,6 @@ const App: React.FC = () => {
                 <EventDetails
                   wallet={wallet}
                   onBuyTicket={handleBuyTicket}
-                  onAddReview={handleAddReview}
                   mintingEventId={mintingEventId}
                   onMintSuccess={() => {
                     // This callback will be called to refresh event data

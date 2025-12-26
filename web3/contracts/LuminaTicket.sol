@@ -182,6 +182,65 @@ contract LuminaTicket is ERC1155, Ownable, ReentrancyGuard {
         }
     }
 
+    // Buy tickets directly (public function for users)
+    function buyTickets(
+        uint256 _eventId,
+        uint256 _ticketType,
+        uint256 _quantity
+    ) external payable nonReentrant {
+        EventData storage eventData = events[_eventId];
+        require(eventData.isActive, "Event is not active");
+
+        uint256 availableSupply = ticketTypeSupply[_eventId][_ticketType];
+        require(availableSupply >= _quantity, "Not enough tickets available");
+
+        // Calculate price based on ticket type (simplified - uses event base price)
+        uint256 totalPrice = eventData.priceETH * _quantity;
+        require(msg.value >= totalPrice, "Insufficient payment");
+
+        // Update supply and sold count
+        ticketTypeSupply[_eventId][_ticketType] -= _quantity;
+        eventData.soldTickets += _quantity;
+
+        // Generate token IDs and mint
+        uint256[] memory ids = new uint256[](_quantity);
+        uint256[] memory amounts = new uint256[](_quantity);
+
+        for (uint256 i = 0; i < _quantity; i++) {
+            uint256 ticketId = nextTicketId++;
+            uint256 tokenId = generateTokenId(_eventId, _ticketType);
+
+            ids[i] = tokenId;
+            amounts[i] = 1;
+
+            // Store ticket data
+            tickets[ticketId] = TicketData({
+                ticketId: ticketId,
+                eventId: _eventId,
+                ownerAddress: msg.sender, // Buyer is the caller
+                purchaseDate: block.timestamp,
+                qrCodeData: generateQRCode(ticketId),
+                isUsed: false,
+                ticketType: _ticketType
+            });
+
+            emit TicketMinted(ticketId, _eventId, msg.sender, _ticketType);
+        }
+
+        // Mint ERC-1155 tokens to buyer
+        _mintBatch(msg.sender, ids, amounts, "");
+
+        // Handle royalties
+        uint256 royaltyAmount = (totalPrice * eventData.royaltyPercentage) /
+            10000; // basis points
+        organizerRoyalties[eventData.organizer] += royaltyAmount;
+
+        // Refund excess payment
+        if (msg.value > totalPrice) {
+            payable(msg.sender).transfer(msg.value - totalPrice);
+        }
+    }
+
     // Transfer ticket (with royalty)
     function transferTicket(uint256 _ticketId, address _to) external {
         TicketData storage ticket = tickets[_ticketId];
@@ -315,6 +374,55 @@ contract LuminaTicket is ERC1155, Ownable, ReentrancyGuard {
         }
 
         return result;
+    }
+
+    // Airdrop tickets to listed addresses (organizer only)
+    function airdropTickets(
+        uint256 _eventId,
+        uint256 _ticketType,
+        address[] memory _recipients
+    ) external {
+        EventData storage eventData = events[_eventId];
+        require(
+            eventData.organizer == msg.sender,
+            "Only event organizer can airdrop"
+        );
+        require(eventData.isActive, "Event is not active");
+
+        uint256 recipientCount = _recipients.length;
+        require(recipientCount > 0, "Must provide at least one recipient");
+
+        uint256 availableSupply = ticketTypeSupply[_eventId][_ticketType];
+        require(
+            availableSupply >= recipientCount,
+            "Not enough tickets available for airdrop"
+        );
+
+        // Update supply and sold count
+        ticketTypeSupply[_eventId][_ticketType] -= recipientCount;
+        eventData.soldTickets += recipientCount;
+
+        // Generate token IDs and mint to each recipient
+        for (uint256 i = 0; i < recipientCount; i++) {
+            uint256 ticketId = nextTicketId++;
+            uint256 tokenId = generateTokenId(_eventId, _ticketType);
+
+            // Store ticket data for recipient
+            tickets[ticketId] = TicketData({
+                ticketId: ticketId,
+                eventId: _eventId,
+                ownerAddress: _recipients[i],
+                purchaseDate: block.timestamp,
+                qrCodeData: generateQRCode(ticketId),
+                isUsed: false,
+                ticketType: _ticketType
+            });
+
+            // Mint single token to recipient
+            _mint(_recipients[i], tokenId, 1, "");
+
+            emit TicketMinted(ticketId, _eventId, _recipients[i], _ticketType);
+        }
     }
 
     // Contract can receive ETH for royalties
