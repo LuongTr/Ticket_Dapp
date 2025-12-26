@@ -264,14 +264,15 @@ export class ContractService {
     }
 
     try {
-      // Get event details to calculate price
-      const eventData = await (this.contract as any).events(eventId);
-      const priceWei = eventData[5]; // priceETH is at index 5 in the struct
+      // Get the price for the specific ticket type
+      const ticketTypePrice = await (this.contract as any).getTicketTypePrice(eventId, ticketType);
+      const priceWei = ticketTypePrice;
 
       const totalPrice = priceWei * BigInt(quantity);
 
       console.log(`Buying ${quantity} tickets for event ${eventId}, type ${ticketType}...`);
-      console.log(`Total price: ${totalPrice} wei`);
+      console.log(`Price per ticket: ${ethers.formatEther(priceWei)} ETH`);
+      console.log(`Total price: ${ethers.formatEther(totalPrice)} ETH (${totalPrice} wei)`);
 
       // Call the public buyTickets function
       const tx = await (this.contract as any).buyTickets(

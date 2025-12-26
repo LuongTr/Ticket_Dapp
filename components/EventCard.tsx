@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NftEvent } from '../types';
-import { Calendar, MapPin, Tag, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { Calendar, MapPin, Tag, Image as ImageIcon, Loader2, ExternalLink } from 'lucide-react';
 
 interface EventCardProps {
   event: NftEvent;
@@ -73,23 +73,12 @@ const EventCard: React.FC<EventCardProps> = ({ event, onBuy, onClick, isMinting 
           <button
             onClick={(e) => {
               e.stopPropagation();
-              onBuy(event);
+              window.location.href = `/events/${event.id}`;
             }}
-            disabled={isMinting}
-            className={`px-5 py-2 rounded-lg font-semibold text-sm transition-colors z-30 flex items-center ${
-              isMinting
-                ? 'bg-gray-600 text-gray-300 cursor-not-allowed'
-                : 'bg-white text-black hover:bg-gray-200'
-            }`}
+            className="px-5 py-2 rounded-lg font-semibold text-sm bg-white text-black hover:bg-white/80 transition-colors z-30 flex items-center"
           >
-            {isMinting ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Minting
-              </>
-            ) : (
-              'Mint Ticket'
-            )}
+            See Details
+            {/* <ExternalLink className="h-4 w-4 ml-2" /> */}
           </button>
         </div>
         

@@ -171,7 +171,7 @@ const App: React.FC = () => {
     return () => {};
   }, []);
 
-  const handleBuyTicket = async (event: NftEvent, onSuccess?: () => void) => {
+  const handleBuyTicket = async (event: NftEvent, onSuccess?: () => void, ticketType: number = 1) => {
     if (!wallet.isConnected) {
       alert("Please connect your wallet first.");
       connectWallet();
@@ -186,7 +186,6 @@ const App: React.FC = () => {
 
       // Mint ticket on the blockchain
       const eventId = parseInt(event.id);
-      const ticketType = 1; // Default to first ticket type
       const quantity = 1; // Mint one ticket
 
       console.log(`Minting ${quantity} ticket(s) for event ${eventId}, type ${ticketType}...`);

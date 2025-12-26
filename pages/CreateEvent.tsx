@@ -25,10 +25,11 @@ const CreateEvent: React.FC<CreateEventProps> = ({ onEventCreated, walletAddress
     imageUrl: ''
   });
 
-  // Ticket types configuration (contract supports multiple types)
+  // Standard ticket types: Regular, VIP, Premium
   const [ticketTypes, setTicketTypes] = useState([
-    { name: 'General Admission', price: 0.05, supply: 80 },
-    { name: 'VIP', price: 0.15, supply: 20 }
+    { id: 1, name: 'Regular', price: 0.01, supply: 70 },
+    { id: 2, name: 'VIP', price: 0.05, supply: 20 },
+    { id: 3, name: 'Premium', price: 0.025, supply: 10 }
   ]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -266,34 +267,161 @@ const CreateEvent: React.FC<CreateEventProps> = ({ onEventCreated, walletAddress
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">Price (ETH)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.priceETH}
-                  onChange={(e) => {
-                    const newPrice = parseFloat(e.target.value);
-                    setFormData({...formData, priceETH: newPrice});
-                    // Also update the first ticket type price
-                    setTicketTypes(prev => prev.map((type, index) =>
-                      index === 0 ? {...type, price: newPrice} : type
-                    ));
-                  }}
-                  className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-lumina-glow/50"
-                  required
-                />
+            {/* Ticket Type Configuration */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-bold text-white mb-4 flex items-center">
+                <span className="w-1 h-6 bg-lumina-accent rounded-full mr-3"></span>
+                Ticket Types
+              </h3>
+
+              {/* Regular Tickets */}
+              <div className="p-4 bg-gradient-to-r from-gray-800/50 to-gray-700/50 border border-gray-600/30 rounded-xl">
+                <h4 className="text-white font-bold text-lg mb-3 flex items-center">
+                  🎫 Regular Admission
+                </h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">Price (ETH)</label>
+                    <input
+                      type="number"
+                      step="0.0001"
+                      min="0"
+                      value={ticketTypes[0].price}
+                      onChange={(e) => {
+                        const newPrice = parseFloat(e.target.value) || 0;
+                        setTicketTypes(prev => prev.map((type, index) =>
+                          index === 0 ? {...type, price: newPrice} : type
+                        ));
+                      }}
+                      className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-lumina-glow/50 text-sm"
+                      placeholder="0.01"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">Supply</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={ticketTypes[0].supply}
+                      onChange={(e) => {
+                        const newSupply = parseInt(e.target.value) || 0;
+                        setTicketTypes(prev => prev.map((type, index) =>
+                          index === 0 ? {...type, supply: newSupply} : type
+                        ));
+                      }}
+                      className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-lumina-glow/50 text-sm"
+                      placeholder="100"
+                      required
+                    />
+                  </div>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">Total Tickets</label>
-                <input
-                  type="number"
-                  value={formData.totalTickets}
-                  onChange={(e) => setFormData({...formData, totalTickets: parseInt(e.target.value)})}
-                  className="w-full bg-black/20 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-lumina-glow/50"
-                  required
-                />
+
+              {/* VIP Tickets */}
+              <div className="p-4 bg-gradient-to-r from-yellow-600/10 to-orange-600/10 border border-yellow-500/30 rounded-xl">
+                <h4 className="text-white font-bold text-lg mb-3 flex items-center">
+                  ⭐ VIP Experience
+                </h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">Price (ETH)</label>
+                    <input
+                      type="number"
+                      step="0.0001"
+                      min="0"
+                      value={ticketTypes[1].price}
+                      onChange={(e) => {
+                        const newPrice = parseFloat(e.target.value) || 0;
+                        setTicketTypes(prev => prev.map((type, index) =>
+                          index === 1 ? {...type, price: newPrice} : type
+                        ));
+                      }}
+                      className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-lumina-glow/50 text-sm"
+                      placeholder="0.05"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">Supply</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={ticketTypes[1].supply}
+                      onChange={(e) => {
+                        const newSupply = parseInt(e.target.value) || 0;
+                        setTicketTypes(prev => prev.map((type, index) =>
+                          index === 1 ? {...type, supply: newSupply} : type
+                        ));
+                      }}
+                      className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-lumina-glow/50 text-sm"
+                      placeholder="50"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Premium Tickets */}
+              <div className="p-4 bg-gradient-to-r from-purple-600/10 to-pink-600/10 border border-purple-500/30 rounded-xl">
+                <h4 className="text-white font-bold text-lg mb-3 flex items-center">
+                  💎 Premium Access
+                </h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">Price (ETH)</label>
+                    <input
+                      type="number"
+                      step="0.0001"
+                      min="0"
+                      value={ticketTypes[2].price}
+                      onChange={(e) => {
+                        const newPrice = parseFloat(e.target.value) || 0;
+                        setTicketTypes(prev => prev.map((type, index) =>
+                          index === 2 ? {...type, price: newPrice} : type
+                        ));
+                      }}
+                      className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-lumina-glow/50 text-sm"
+                      placeholder="0.10"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">Supply</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={ticketTypes[2].supply}
+                      onChange={(e) => {
+                        const newSupply = parseInt(e.target.value) || 0;
+                        setTicketTypes(prev => prev.map((type, index) =>
+                          index === 2 ? {...type, supply: newSupply} : type
+                        ));
+                      }}
+                      className="w-full bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white focus:outline-none focus:border-lumina-glow/50 text-sm"
+                      placeholder="25"
+                      required
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Total Summary */}
+              <div className="p-4 bg-lumina-card/50 border border-white/10 rounded-xl">
+                <div className="grid grid-cols-2 gap-4 text-center">
+                  <div>
+                    <p className="text-sm text-gray-400">Total Tickets</p>
+                    <p className="text-xl font-bold text-white">
+                      {ticketTypes.reduce((sum, type) => sum + type.supply, 0)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-400">Revenue Potential</p>
+                    <p className="text-xl font-bold text-lumina-glow">
+                      {(ticketTypes.reduce((sum, type) => sum + (type.price * type.supply), 0) * 2800).toLocaleString()}$
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
 

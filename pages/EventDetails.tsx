@@ -1,14 +1,15 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { ethers } from 'ethers';
 import { NftEvent, WalletState } from '../types';
-import { ArrowLeft, Calendar, MapPin, Tag, User, Share2, Ticket as TicketIcon, Clock, ShieldCheck, CalendarPlus, Download, ExternalLink, Star, MessageSquare, Loader2, AlertCircle, Gift } from 'lucide-react';
+import { ArrowLeft, Calendar, MapPin, Tag, User, Share2, Ticket as TicketIcon, Clock, ShieldCheck, CalendarPlus, Download, ExternalLink, Star, MessageSquare, Loader2, AlertCircle, Gift, ChevronDown } from 'lucide-react';
 import { contractService } from '../src/services/contractService';
 import ReviewService, { Review, ReviewStats } from '../services/reviewService';
 import AirdropModal from '../components/AirdropModal';
 
 interface EventDetailsProps {
   wallet: WalletState;
-  onBuyTicket: (event: NftEvent, onSuccess?: () => void) => void;
+  onBuyTicket: (event: NftEvent, onSuccess?: () => void, ticketType?: number) => void;
   mintingEventId: string | null;
   onMintSuccess: () => void;
 }
@@ -41,6 +42,13 @@ const EventDetails: React.FC<EventDetailsProps> = ({ wallet, onBuyTicket, mintin
 
   // Airdrop modal state
   const [showAirdropModal, setShowAirdropModal] = useState(false);
+
+  // Ticket type selection state
+  const [selectedTicketType, setSelectedTicketType] = useState(1); // 1: Regular, 2: VIP, 3: Premium
+
+  // Ticket type prices (real prices set during event creation)
+  const ticketPrices = [0.01, 0.05, 0.025]; // These match the CreateEvent defaults
+  const ticketSupplies = [70, 20, 10]; // Simplified availability calculation
 
   // Fetch event data from blockchain
   useEffect(() => {
@@ -85,6 +93,10 @@ const EventDetails: React.FC<EventDetailsProps> = ({ wallet, onBuyTicket, mintin
         };
 
         setEvent(formattedEvent);
+
+        // Using real ticket prices set during event creation (stored in CreateEvent form)
+        // These match the defaults in CreateEvent.tsx for consistency
+
       } catch (err) {
         console.error('Failed to fetch event:', err);
         setError(err instanceof Error ? err.message : 'Failed to load event data');
@@ -757,12 +769,21 @@ END:VCALENDAR`;
                   Ticket Details
                 </h3>
 
+                {/* Ticket Type Dropdown - Moved Above */}
                 <div className="mb-6">
-                  <div className="flex justify-between items-end mb-2">
-                    <span className="text-gray-400">Current Price</span>
-                    <span className="text-3xl font-bold text-white">{event.priceETH} ETH</span>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">Select Ticket Type</label>
+                  <div className="relative">
+                    <select
+                      value={selectedTicketType}
+                      onChange={(e) => setSelectedTicketType(parseInt(e.target.value))}
+                      className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-lumina-glow/50 appearance-none pr-10"
+                    >
+                      <option value={1}>Regular - {ticketPrices[0] || 0.01} ETH ({ticketSupplies[0] || 70} left)</option>
+                      <option value={2}>VIP - {ticketPrices[1] || 0.05} ETH ({ticketSupplies[1] || 20} left)</option>
+                      <option value={3}>Premium - {ticketPrices[2] || 0.025} ETH ({ticketSupplies[2] || 10} left)</option>
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
                   </div>
-                  <p className="text-xs text-gray-500 text-right">≈ ${(event.priceETH * 2800).toLocaleString()} USD</p>
                 </div>
 
                 <div className="space-y-4 mb-8">
@@ -772,7 +793,7 @@ END:VCALENDAR`;
                         <span className="text-white font-medium">{event.soldTickets} / {event.totalTickets} sold</span>
                       </div>
                       <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
-                        <div 
+                        <div
                           className={`h-full rounded-full transition-all duration-1000 ${
                             percentageSold > 90 ? 'bg-red-500' : 'bg-gradient-to-r from-lumina-accent to-lumina-glow'
                           }`}
@@ -780,7 +801,7 @@ END:VCALENDAR`;
                         />
                       </div>
                    </div>
-                   
+
                    <div className="grid grid-cols-2 gap-2 text-center">
                       <div className="bg-white/5 rounded-lg p-3">
                           <p className="text-xs text-gray-500 mb-1">Status</p>
@@ -796,7 +817,7 @@ END:VCALENDAR`;
                 </div>
 
                 <button
-                  onClick={() => onBuyTicket(event, onMintSuccess)}
+                  onClick={() => onBuyTicket(event, onMintSuccess, selectedTicketType)}
                   disabled={isSoldOut || mintingEventId !== null}
                   className={`w-full py-4 rounded-xl font-bold text-lg shadow-lg flex items-center justify-center transition-all duration-300 ${
                     isSoldOut || mintingEventId !== null
@@ -804,7 +825,7 @@ END:VCALENDAR`;
                       : 'bg-white text-lumina-dark hover:bg-gray-200 hover:shadow-white/10'
                   }`}
                 >
-                   {isSoldOut ? 'Sold Out' : mintingEventId === event.id ? 'Ticket is minting...' : mintingEventId ? 'Minting in progress...' : 'Mint Ticket Now'}
+                   {isSoldOut ? 'Sold Out' : mintingEventId === event.id ? 'Ticket is minting...' : mintingEventId ? 'Minting in progress...' : `Buy ${selectedTicketType === 1 ? 'Regular' : selectedTicketType === 2 ? 'VIP' : 'Premium'} Ticket`}
                    {!isSoldOut && mintingEventId === null && <TicketIcon className="ml-2 h-5 w-5" />}
                    {mintingEventId === event.id && <Loader2 className="ml-2 h-5 w-5 animate-spin" />}
                 </button>
@@ -814,6 +835,8 @@ END:VCALENDAR`;
                   Resale royalties apply.
                 </p>
               </div>
+
+
 
               {/* Airdrop Button for Organizers */}
               {wallet.isConnected && event.organizer?.toLowerCase() === wallet.address?.toLowerCase() && (
