@@ -127,22 +127,28 @@ const EventDetails: React.FC<EventDetailsProps> = ({ wallet, onBuyTicket, mintin
         setFetchedReviews(reviewsData);
         setReviewStats(statsData);
 
-        // Find user's existing review if wallet is connected
+        // Filter out legacy reviews without user_address and find user's existing review if wallet is connected
+        // Note: Database returns snake_case (user_address), not camelCase (userAddress)
+        const validReviews = reviewsData.filter(review => review.user_address && review.user_address.trim() !== '');
+
         if (wallet.isConnected && wallet.address) {
-          const userReview = reviewsData.find(review =>
-            review.userAddress?.toLowerCase() === wallet.address?.toLowerCase()
+          const userReview = validReviews.find(review =>
+            review.user_address?.toLowerCase() === wallet.address?.toLowerCase()
           );
           setUserReview(userReview || null);
+        }
 
-          // Pre-fill form with existing review data
-          if (userReview) {
-            setUserRating(userReview.rating);
-            setUserComment(userReview.comment);
-          } else {
-            // Reset to defaults if no existing review
-            setUserRating(5);
-            setUserComment('');
-          }
+        // Update the reviews data to exclude invalid reviews
+        setFetchedReviews(validReviews);
+
+        // Pre-fill form with existing review data
+        if (userReview) {
+          setUserRating(userReview.rating);
+          setUserComment(userReview.comment);
+        } else {
+          // Reset to defaults if no existing review
+          setUserRating(5);
+          setUserComment('');
         }
       } catch (error) {
         console.error('Failed to fetch reviews:', error);
@@ -296,14 +302,28 @@ END:VCALENDAR`;
 
       // Find updated user review
       const updatedUserReview = reviewsData.find(review =>
-        review.userAddress?.toLowerCase() === wallet.address?.toLowerCase()
+        review.user_address?.toLowerCase() === wallet.address?.toLowerCase()
       );
       setUserReview(updatedUserReview || null);
 
     } catch (error) {
       console.error('Failed to submit review:', error);
-      // You could add toast notification here for error
-      alert('Each user can review once.');
+
+      // Handle different error types
+      let errorMessage = 'Failed to submit review. Please try again.';
+
+      if (error instanceof Error) {
+        // Check for specific error messages from backend
+        if (error.message.includes('ticket')) {
+          errorMessage = 'You must own a ticket for this event to leave a review.';
+        } else if (error.message.includes('already reviewed')) {
+          errorMessage = 'You have already reviewed this event.';
+        } else if (error.message.includes('Invalid signature')) {
+          errorMessage = 'Signature verification failed. Please try again.';
+        }
+      }
+
+      alert(errorMessage);
     } finally {
       setSubmittingReview(false);
     }
@@ -486,7 +506,7 @@ END:VCALENDAR`;
                   </div>
                   <div>
                     <p className="text-sm text-gray-500 mb-1">Verified on Blockchain</p>
-                    <p className="text-white">Contract: 0x7a...F39e</p>
+                    <p className="text-white">Contract: {truncateAddress(contractService.getContractAddress())}</p>
                   </div>
                 </div>
               </div>
@@ -611,9 +631,22 @@ END:VCALENDAR`;
                                    <button
                                        type="submit"
                                        disabled={submittingReview || !!userReview}
-                                       className="px-8 py-3 bg-gray-600 text-gray-400 font-bold rounded-xl cursor-not-allowed shadow-lg shadow-white/5 flex items-center gap-2"
+                                       className={`px-8 py-3 font-bold rounded-xl shadow-lg flex items-center gap-2 transition-all duration-300 ${
+                                           submittingReview || !!userReview
+                                               ? 'bg-gray-600 text-gray-400 cursor-not-allowed shadow-white/5'
+                                               : 'bg-lumina-glow text-lumina-dark hover:bg-lumina-glow/80 hover:shadow-lumina-glow/25'
+                                       }`}
                                    >
-                                       {userReview ? 'Use Edit Button Below' : 'Submit Review'}
+                                       {submittingReview ? (
+                                           <>
+                                               <Loader2 className="h-4 w-4 animate-spin" />
+                                               Submitting...
+                                           </>
+                                       ) : userReview ? (
+                                           'Use Edit Button Below'
+                                       ) : (
+                                           'Submit Review'
+                                       )}
                                    </button>
                                </div>
                            </form>
@@ -634,7 +667,7 @@ END:VCALENDAR`;
                    {reviews.length > 0 ? (
                        reviews.map((review) => {
                            const isEditing = editingReviewId === review.id;
-                           const isOwnReview = review.userAddress?.toLowerCase() === wallet.address?.toLowerCase();
+                           const isOwnReview = (review.userAddress || review.user_address)?.toLowerCase() === wallet.address?.toLowerCase();
 
                            // Debug logging for edit button visibility
                            if (isOwnReview) {
@@ -646,11 +679,11 @@ END:VCALENDAR`;
                                    <div className="flex justify-between items-start mb-4">
                                        <div className="flex items-center gap-4">
                                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center text-sm font-bold text-white shadow-lg ring-2 ring-white/10">
-                                               {review.userAddress ? review.userAddress.slice(2, 4).toUpperCase() : '??'}
+                                               {(review.userAddress || review.user_address) ? (review.userAddress || review.user_address).slice(2, 4).toUpperCase() : '??'}
                                            </div>
                                            <div className="flex-1">
                                                <p className="text-sm font-bold text-white font-mono tracking-wide">
-                                                   {review.userAddress ? truncateAddress(review.userAddress) : 'Unknown User'}
+                                                   {(review.userAddress || review.user_address) ? truncateAddress(review.userAddress || review.user_address) : 'Unknown User'}
                                                    {isOwnReview && <span className="ml-2 text-xs text-lumina-glow">(Your Review)</span>}
                                                </p>
                                                <div className="flex gap-0.5 mt-1">
@@ -790,7 +823,7 @@ END:VCALENDAR`;
                       </div>
                        <div className="bg-white/5 rounded-lg p-3">
                           <p className="text-xs text-gray-500 mb-1">Type</p>
-                          <p className="text-sm font-semibold text-white">NFT Ticket</p>
+                          <p className="text-sm font-semibold text-white">Regular</p>
                       </div>
                    </div>
                 </div>
@@ -804,7 +837,7 @@ END:VCALENDAR`;
                       : 'bg-white text-lumina-dark hover:bg-gray-200 hover:shadow-white/10'
                   }`}
                 >
-                   {isSoldOut ? 'Sold Out' : mintingEventId === event.id ? 'Ticket is minting...' : mintingEventId ? 'Minting in progress...' : 'Mint Ticket Now'}
+                   {isSoldOut ? 'Sold Out' : mintingEventId === event.id ? 'Ticket is minting...' : mintingEventId ? 'Minting in progress...' : 'Buy Ticket Now'}
                    {!isSoldOut && mintingEventId === null && <TicketIcon className="ml-2 h-5 w-5" />}
                    {mintingEventId === event.id && <Loader2 className="ml-2 h-5 w-5 animate-spin" />}
                 </button>

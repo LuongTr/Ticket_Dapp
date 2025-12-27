@@ -1,7 +1,8 @@
 export interface Review {
   id: string;
   eventId: number;
-  userAddress: string;
+  userAddress?: string; // camelCase for frontend
+  user_address?: string; // snake_case from database
   rating: number;
   comment: string;
   created_at: string;
