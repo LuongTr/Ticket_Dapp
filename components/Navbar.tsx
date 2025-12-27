@@ -17,9 +17,9 @@ const Navbar: React.FC<NavbarProps> = ({ wallet, connectWallet, disconnectWallet
   const navLinks = [
     { label: 'Home', path: '/' },
     { label: 'Explore', path: '/explore' },
-    { label: 'My Events', path: '/my-events' },
     { label: 'Create Event', path: '/create' },
     { label: 'My Tickets', path: '/dashboard' },
+    { label: 'Manage', path: '/manage' },
   ];
 
   return (

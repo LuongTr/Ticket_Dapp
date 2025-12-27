@@ -3,10 +3,11 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Home from './pages/Home';
 import Explore from './pages/Explore';
-import MyEvents from './pages/MyEvents';
 import CreateEvent from './pages/CreateEvent';
 import Dashboard from './pages/Dashboard';
 import EventDetails from './pages/EventDetails';
+import TicketManager from './pages/TicketManager';
+import ManageEvents from './pages/ManageEvents';
 import { WalletState, NftEvent, Ticket, Review } from './types';
 import { contractService } from './src/services/contractService';
 
@@ -298,19 +299,7 @@ const App: React.FC = () => {
                 />
               }
             />
-            <Route
-              path="/my-events"
-              element={
-                <MyEvents
-                  wallet={wallet}
-                  connectWallet={connectWallet}
-                  onBuyTicket={handleBuyTicket}
-                  onViewEventDetails={(event) => {
-                    window.location.href = `/events/${event.id}`;
-                  }}
-                />
-              }
-            />
+
             <Route
               path="/events/:id"
               element={
@@ -340,6 +329,24 @@ const App: React.FC = () => {
               element={
                 <Dashboard
                   wallet={wallet}
+                />
+              }
+            />
+            <Route
+              path="/manage"
+              element={
+                <ManageEvents
+                  wallet={wallet}
+                  onConnectWallet={connectWallet}
+                />
+              }
+            />
+            <Route
+              path="/manage/:eventId"
+              element={
+                <TicketManager
+                  wallet={wallet}
+                  onConnectWallet={connectWallet}
                 />
               }
             />

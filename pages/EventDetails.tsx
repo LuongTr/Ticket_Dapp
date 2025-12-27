@@ -120,8 +120,8 @@ const EventDetails: React.FC<EventDetailsProps> = ({ wallet, onBuyTicket, mintin
       try {
         setReviewsLoading(true);
         const [reviewsData, statsData] = await Promise.all([
-          ReviewService.getReviews(parseInt(id)),
-          ReviewService.getReviewStats(parseInt(id))
+          ReviewService.getReviews(Number(event.id)),
+          ReviewService.getReviewStats(Number(event.id))
         ]);
 
         setFetchedReviews(reviewsData);
@@ -266,7 +266,7 @@ END:VCALENDAR`;
       setSubmittingReview(true);
 
       // Generate the message to sign
-      const message = ReviewService.generateReviewMessage(event.id, userReview ? 'update' : 'create');
+      const message = ReviewService.generateReviewMessage(Number(event.id), userReview ? 'update' : 'create');
 
       // Sign the message with MetaMask
       const signature = await window.ethereum.request({
@@ -275,7 +275,7 @@ END:VCALENDAR`;
       });
 
       const requestData = {
-        eventId: event.id,
+        eventId: Number(event.id),
         rating: userRating,
         comment: userComment.trim(),
         signature,
@@ -293,8 +293,8 @@ END:VCALENDAR`;
 
       // Refresh the reviews data
       const [reviewsData, statsData] = await Promise.all([
-        ReviewService.getReviews(event.id),
-        ReviewService.getReviewStats(event.id)
+        ReviewService.getReviews(Number(event.id)),
+        ReviewService.getReviewStats(Number(event.id))
       ]);
 
       setFetchedReviews(reviewsData);
@@ -360,7 +360,7 @@ END:VCALENDAR`;
       setSubmittingReview(true);
 
       // Generate the message to sign
-      const message = ReviewService.generateReviewMessage(event.id, 'update');
+      const message = ReviewService.generateReviewMessage(Number(event.id), 'update');
 
       // Sign the message with MetaMask
       const signature = await window.ethereum.request({
@@ -369,7 +369,7 @@ END:VCALENDAR`;
       });
 
       const requestData = {
-        eventId: event.id,
+        eventId: Number(event.id),
         rating: editRating,
         comment: editComment.trim(),
         signature,
@@ -381,8 +381,8 @@ END:VCALENDAR`;
 
       // Refresh the reviews data
       const [reviewsData, statsData] = await Promise.all([
-        ReviewService.getReviews(event.id),
-        ReviewService.getReviewStats(event.id)
+        ReviewService.getReviews(Number(event.id)),
+        ReviewService.getReviewStats(Number(event.id))
       ]);
 
       setFetchedReviews(reviewsData);
