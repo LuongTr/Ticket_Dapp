@@ -11,8 +11,11 @@
   "dependencies": {
     "@google/genai": "^1.34.0",
     "@types/react-qr-reader": "^2.1.7",
+    "@zxing/browser": "^0.1.5",
+    "@zxing/library": "^0.21.3",
     "ethers": "^6.8.1",
     "lucide-react": "^0.562.0",
+    "qrcode": "^1.5.4",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-qr-reader": "^3.0.0-beta-1",

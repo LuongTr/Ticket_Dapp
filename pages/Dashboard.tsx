@@ -3,6 +3,7 @@ import { Ticket, NftEvent, WalletState } from '../types';
 import { QrCode, Ticket as TicketIcon, Clock, CheckCircle2, XCircle, X, ScanLine, Check, Send, AlertCircle, Loader2, Wallet } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { contractService } from '../src/services/contractService';
+import QRCode from 'qrcode';
 
 interface DashboardProps {
   wallet: WalletState;
@@ -16,6 +17,7 @@ const Dashboard: React.FC<DashboardProps> = ({ wallet }) => {
 
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
 
   // Transfer State
   const [transferTicket, setTransferTicket] = useState<Ticket | null>(null);
@@ -113,6 +115,35 @@ const Dashboard: React.FC<DashboardProps> = ({ wallet }) => {
 
     fetchUserTickets();
   }, [wallet.isConnected, wallet.address]);
+
+  // Generate QR code when ticket is selected
+  useEffect(() => {
+    const generateQRCode = async () => {
+      if (selectedTicket) {
+        try {
+          const qrData = selectedTicket.qrCodeData;
+          const qrCodeDataUrl = await QRCode.toDataURL(qrData, {
+            errorCorrectionLevel: 'M',
+            type: 'image/png',
+            quality: 0.92,
+            margin: 1,
+            color: {
+              dark: '#000000',
+              light: '#FFFFFF'
+            }
+          });
+          setQrCodeUrl(qrCodeDataUrl);
+        } catch (error) {
+          console.error('Failed to generate QR code:', error);
+          setQrCodeUrl(null);
+        }
+      } else {
+        setQrCodeUrl(null);
+      }
+    };
+
+    generateQRCode();
+  }, [selectedTicket]);
 
   const handleVerify = async () => {
     if (!selectedTicket) return;
@@ -315,7 +346,7 @@ const Dashboard: React.FC<DashboardProps> = ({ wallet }) => {
                     <div className="flex justify-between items-center p-4 bg-white/5 rounded-xl">
                         <span className="text-gray-400">Value (Est.)</span>
                         <span className="text-xl font-bold text-white">
-                             {tickets.reduce((acc, t) => acc + parseFloat(getEventById(t.eventId)?.priceETH || '0'), 0).toFixed(4)} ETH
+                             {tickets.reduce((acc, t) => acc + (getEventById(t.eventId)?.priceETH || 0), 0).toFixed(4)} ETH
                         </span>
                     </div>
                 </div>
@@ -344,7 +375,20 @@ const Dashboard: React.FC<DashboardProps> = ({ wallet }) => {
                 </div>
 
                 <div className="relative w-64 h-64 mx-auto mb-8 bg-white p-4 rounded-xl">
-                    <QrCode className="w-full h-full text-black" strokeWidth={1} />
+                    {qrCodeUrl ? (
+                        <img
+                            src={qrCodeUrl}
+                            alt="QR Code"
+                            className="w-full h-full object-contain"
+                        />
+                    ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                            <div className="text-center">
+                                <QrCode className="w-16 h-16 text-black mx-auto mb-2" />
+                                <p className="text-xs text-gray-600">Generating QR code...</p>
+                            </div>
+                        </div>
+                    )}
                     {/* Scanning Animation */}
                     <div className="absolute inset-0 overflow-hidden rounded-xl pointer-events-none">
                          <div className="w-full h-1 bg-lumina-accent/50 shadow-[0_0_20px_rgba(109,40,217,0.8)] absolute top-0 animate-[float_3s_ease-in-out_infinite]" style={{ animation: 'scan 2s linear infinite' }}></div>

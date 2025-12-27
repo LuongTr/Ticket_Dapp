@@ -356,7 +356,7 @@ const App: React.FC = () => {
         {/* Simple Footer */}
         <footer className="border-t border-white/5 py-10 mt-20 bg-lumina-card">
           <div className="max-w-7xl mx-auto px-4 text-center">
-              <p className="text-gray-500 text-sm">© 2024 Lumina Decentralized Ticketing. Built on Ethereum.</p>
+              <p className="text-gray-500 text-sm">© 2025 Lumina Decentralized Ticketing. Built on Ethereum.</p>
           </div>
         </footer>
       </div>

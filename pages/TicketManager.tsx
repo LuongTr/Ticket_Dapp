@@ -24,8 +24,8 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { contractService } from '../src/services/contractService';
-import { QrReader } from 'react-qr-reader';
 import { PieChart as RechartsPieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library';
 
 interface TicketManagerProps {
   wallet: WalletState;
@@ -50,6 +50,12 @@ const TicketManager: React.FC<TicketManagerProps> = ({ wallet, onConnectWallet }
   const [scanning, setScanning] = useState(false);
   const [scanResult, setScanResult] = useState<string | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
+  const [cameraActive, setCameraActive] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
+
+  // QR Scanner Refs
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null);
 
   // Check-in State
   const [checkingIn, setCheckingIn] = useState(false);
@@ -255,6 +261,81 @@ const TicketManager: React.FC<TicketManagerProps> = ({ wallet, onConnectWallet }
   const handleScanError = (error: any) => {
     console.error('QR scan error:', error);
     setScanError('Camera access failed. Please check permissions.');
+  };
+
+  // QR Scanner Effects
+  useEffect(() => {
+    if (showScanner && !cameraActive) {
+      initializeCamera();
+    }
+
+    return () => {
+      if (!showScanner && cameraActive) {
+        stopCamera();
+      }
+    };
+  }, [showScanner, cameraActive]);
+
+  const initializeCamera = async () => {
+    try {
+      setCameraError(null);
+
+      // Create code reader instance
+      const codeReader = new BrowserMultiFormatReader();
+      codeReaderRef.current = codeReader;
+
+      // Get available video devices
+      const videoDevices = await codeReader.getVideoInputDevices();
+
+      if (videoDevices.length === 0) {
+        throw new Error('No camera devices found');
+      }
+
+      // Use the first available camera (usually back camera on mobile)
+      const selectedDeviceId = videoDevices[0].deviceId;
+
+      // Start decoding
+      await codeReader.decodeFromVideoDevice(
+        selectedDeviceId,
+        videoRef.current!,
+        (result, error) => {
+          if (result) {
+            // Successfully scanned QR code
+            handleScan(result.getText());
+          }
+          // Ignore NotFoundException (normal when no QR code is visible)
+          if (error && !(error instanceof NotFoundException)) {
+            console.error('QR scan error:', error);
+            setCameraError('Camera scanning error');
+          }
+        }
+      );
+
+      setCameraActive(true);
+    } catch (error) {
+      console.error('Failed to initialize camera:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to access camera';
+      setCameraError(errorMessage);
+      setCameraActive(false);
+    }
+  };
+
+  const stopCamera = () => {
+    if (codeReaderRef.current) {
+      codeReaderRef.current.reset();
+      codeReaderRef.current = null;
+    }
+    setCameraActive(false);
+    setCameraError(null);
+  };
+
+  // Handle closing scanner modal
+  const handleCloseScanner = () => {
+    stopCamera();
+    setShowScanner(false);
+    setScanResult(null);
+    setScanError(null);
+    setScanning(false);
   };
 
   // Refresh data
@@ -569,32 +650,57 @@ const TicketManager: React.FC<TicketManagerProps> = ({ wallet, onConnectWallet }
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-bold text-white">Scan QR Code</h3>
               <button
-                onClick={() => setShowScanner(false)}
+                onClick={handleCloseScanner}
                 className="text-gray-500 hover:text-white transition-colors"
               >
                 <X className="h-6 w-6" />
               </button>
             </div>
 
-            {/* Scanner Placeholder - QR Library needs proper setup */}
+            {/* Camera Scanner */}
             <div className="relative mb-6">
-              <div className="w-full h-64 bg-black rounded-xl overflow-hidden flex items-center justify-center">
-                <div className="text-center">
-                  <Camera className="h-12 w-12 text-gray-600 mx-auto mb-4" />
-                  <p className="text-gray-400 text-sm">Camera access for QR scanning</p>
-                  <p className="text-gray-500 text-xs mt-2">QR scanning will be implemented with proper camera permissions</p>
-                </div>
-
-                {/* Scanning overlay */}
-                <div className="absolute inset-0 pointer-events-none">
-                  <div className="w-full h-full border-2 border-lumina-glow rounded-xl">
-                    <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-32 h-32 border-2 border-white/50 rounded-lg">
-                      <div className="absolute inset-2 border border-lumina-glow rounded animate-pulse" />
+              <div className="w-full h-64 bg-black rounded-xl overflow-hidden">
+                {cameraError ? (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <div className="text-center">
+                      <CameraOff className="h-12 w-12 text-red-400 mx-auto mb-4" />
+                      <p className="text-red-400 text-sm font-medium">Camera Error</p>
+                      <p className="text-gray-400 text-xs mt-1">{cameraError}</p>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  <video
+                    ref={videoRef}
+                    className="w-full h-full object-cover"
+                    playsInline
+                    muted
+                    autoPlay
+                  />
+                )}
+
+                {/* Scanning overlay */}
+                {!cameraError && (
+                  <div className="absolute inset-0 pointer-events-none">
+                    <div className="w-full h-full border-2 border-lumina-glow rounded-xl">
+                      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-32 h-32 border-2 border-white/50 rounded-lg">
+                        <div className="absolute inset-2 border border-lumina-glow rounded animate-pulse" />
+                      </div>
+                      {/* Scanning line animation */}
+                      <div className="absolute inset-0 overflow-hidden">
+                        <div className="w-full h-0.5 bg-lumina-glow/60 shadow-[0_0_10px_rgba(139,92,246,0.8)] absolute top-1/2 transform -translate-y-1/2 animate-[scan_2s_ease-in-out_infinite]" />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
+
+            <style>{`
+              @keyframes scan {
+                0%, 100% { transform: translateY(-50%) translateX(-100%); opacity: 0; }
+                50% { transform: translateY(-50%) translateX(100%); opacity: 1; }
+              }
+            `}</style>
 
             {/* Status Messages */}
             {scanError && (
