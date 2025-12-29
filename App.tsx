@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard';
 import EventDetails from './pages/EventDetails';
 import TicketManager from './pages/TicketManager';
 import ManageEvents from './pages/ManageEvents';
+import Marketplace from './pages/Marketplace';
 import { WalletState, NftEvent, Ticket, Review } from './types';
 import { contractService } from './src/services/contractService';
 
@@ -336,6 +337,15 @@ const App: React.FC = () => {
               path="/manage"
               element={
                 <ManageEvents
+                  wallet={wallet}
+                  onConnectWallet={connectWallet}
+                />
+              }
+            />
+            <Route
+              path="/marketplace"
+              element={
+                <Marketplace
                   wallet={wallet}
                   onConnectWallet={connectWallet}
                 />

@@ -346,7 +346,11 @@ const Dashboard: React.FC<DashboardProps> = ({ wallet }) => {
                     <div className="flex justify-between items-center p-4 bg-white/5 rounded-xl">
                         <span className="text-gray-400">Value (Est.)</span>
                         <span className="text-xl font-bold text-white">
-                             {tickets.reduce((acc, t) => acc + (getEventById(t.eventId)?.priceETH || 0), 0).toFixed(4)} ETH
+                             {tickets.reduce((acc, t) => {
+                               const price = getEventById(t.eventId)?.priceETH;
+                               const numericPrice = typeof price === 'number' ? price : parseFloat(price || '0') || 0;
+                               return acc + numericPrice;
+                             }, 0).toFixed(4)} ETH
                         </span>
                     </div>
                 </div>
