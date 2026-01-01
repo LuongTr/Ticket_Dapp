@@ -4,22 +4,22 @@
 <img width="1200" height="475" alt="Lumina Banner" src="https://github.com/user-attachments/assets/lumina-banner" />
 </div>
 
-## 🌟 Overview
+## Overview
 
 Lumina is a revolutionary NFT-based event ticketing platform built on Ethereum blockchain. It eliminates counterfeit tickets, scalping, and provides secure, transparent ticketing with smart contract-backed NFTs. Event organizers earn perpetual royalties on secondary ticket sales while attendees enjoy instant transfers and verified ownership.
 
-## ✨ Features
+## Features
 
-- **🔐 Secure NFT Tickets**: Every ticket is an ERC-1155 NFT with cryptographic proof of ownership
-- **⚡ Instant Transfers**: Send tickets to friends or resell them instantly on the blockchain
-- **💰 Smart Royalties**: Organizers earn automatic royalties on every secondary sale
-- **🚫 Anti-Scalping**: Smart contracts prevent price gouging and ticket bots
-- **📱 QR Code Verification**: Seamless check-in with blockchain-verified QR codes
-- **🏛️ Decentralized**: No single point of failure, powered by Ethereum
-- **📊 Real-time Analytics**: Comprehensive insights for organizers and attendees
-- **🔄 Auction System**: Built-in marketplace for ticket auctions
+- **Secure NFT Tickets**: Every ticket is an ERC-1155 NFT with cryptographic proof of ownership
+- **Instant Transfers**: Send tickets to friends or resell them instantly on the blockchain
+- **Smart Royalties**: Organizers earn automatic royalties on every secondary sale
+- **Anti-Scalping**: Smart contracts prevent price gouging and ticket bots
+- **QR Code Verification**: Seamless check-in with blockchain-verified QR codes
+- **Decentralized**: No single point of failure, powered by Ethereum
+- **Real-time Analytics**: Comprehensive insights for organizers and attendees
+- **Auction System**: Built-in marketplace for ticket auctions
 
-## 🏗️ Architecture
+## Architecture
 
 Lumina consists of three main components:
 
@@ -45,7 +45,7 @@ Lumina consists of three main components:
 - **Network**: Ethereum Sepolia testnet
 - **Features**: Event creation, ticket minting, royalty management, secure transfers
 
-## 📋 Prerequisites
+## Prerequisites
 
 Before running Lumina, ensure you have the following installed:
 
@@ -63,7 +63,7 @@ Before running Lumina, ensure you have the following installed:
 - **Etherscan Account**: For contract verification ([etherscan.io](https://etherscan.io/))
 - **MetaMask Wallet**: For blockchain interactions (recommended)
 
-## 🚀 Installation & Setup
+## Installation & Setup
 
 ### 1. Clone the Repository
 
@@ -147,7 +147,7 @@ cp .env.local.example .env.local
 npm run dev
 ```
 
-## ⚙️ Environment Variables
+## Environment Variables
 
 ### Frontend (.env.local)
 
@@ -182,8 +182,6 @@ CONTRACT_ADDRESS=0xd2c7D664cD1CF54f046BF6086AfC2cAc0B552f43
 # Pinata Configuration (IPFS)
 PINATA_JWT=your_pinata_jwt_token
 
-# Security
-JWT_SECRET=your_jwt_secret_for_production
 ```
 
 ### Smart Contracts (web3/.env)
@@ -222,137 +220,6 @@ REPORT_GAS=true
    ```
 
    Application will be available at http://localhost:3000
-
-3. **Optional: Start Local Blockchain** (Terminal 3):
-   ```bash
-   cd web3
-   npm run node
-   ```
-
-### Production Mode
-
-```bash
-# Frontend
-npm run build
-npm run preview
-
-# Backend
-cd lumina-api
-npm start
-```
-
-## 📁 Project Structure
-
-```
-lumina---nft-ticketing/
-├── components/           # React components
-├── pages/               # Page components
-├── services/            # API services
-├── src/
-│   ├── contracts/       # Contract ABIs and configs
-│   └── services/        # Additional services
-├── public/              # Static assets
-├── web3/                # Smart contracts (Hardhat)
-│   ├── contracts/       # Solidity contracts
-│   ├── scripts/         # Deployment scripts
-│   ├── test/           # Contract tests
-│   └── artifacts/      # Compiled contracts
-└── lumina-api/          # Backend API
-    ├── src/
-    │   ├── controllers/ # Route controllers
-    │   ├── models/     # Database models
-    │   ├── routes/     # API routes
-    │   ├── services/   # Business logic
-    │   └── utils/      # Utility functions
-    └── server.js       # Express server
-```
-
-## 🔌 API Endpoints
-
-### Events
-
-- `GET /api/events` - Get all events
-- `POST /api/events` - Create new event (authenticated)
-- `GET /api/events/:id` - Get event details
-- `PUT /api/events/:id` - Update event (organizer only)
-
-### Tickets
-
-- `POST /api/tickets/mint` - Mint tickets for buyer
-- `GET /api/tickets/:address` - Get tickets by owner
-- `POST /api/tickets/transfer` - Transfer ticket
-- `POST /api/tickets/use` - Mark ticket as used
-
-### Auctions
-
-- `GET /api/auctions` - Get active auctions
-- `POST /api/auctions` - Create auction
-- `POST /api/auctions/:id/bid` - Place bid
-- `POST /api/auctions/:id/end` - End auction
-
-## 🧪 Testing
-
-### Smart Contracts
-
-```bash
-cd web3
-npm test
-```
-
-### API
-
-```bash
-cd lumina-api
-npm test
-```
-
-## 🚀 Deployment
-
-### Frontend
-
-Build and deploy to any static hosting service:
-
-```bash
-npm run build
-# Deploy dist/ folder to Netlify, Vercel, etc.
-```
-
-### Backend
-
-Deploy to cloud platforms like Heroku, Railway, or AWS:
-
-```bash
-cd lumina-api
-npm start
-```
-
-### Database
-
-Use cloud database services like Azure SQL, AWS RDS, or PlanetScale for production.
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/amazing-feature`
-3. Commit changes: `git commit -m 'Add amazing feature'`
-4. Push to branch: `git push origin feature/amazing-feature`
-5. Open a Pull Request
-
-## 📝 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## 🆘 Support
-
-- **Documentation**: Check the `/docs` folder for detailed guides
-- **Issues**: Open a GitHub issue for bugs or feature requests
-- **Discord**: Join our community for discussions
-
-## 🙏 Acknowledgments
-
-- Built on Ethereum Sepolia testnet
-- Uses OpenZeppelin contracts for security
-- Inspired by the future of event ticketing
 
 ---
 
