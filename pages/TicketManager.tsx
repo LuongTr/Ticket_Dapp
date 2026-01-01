@@ -21,7 +21,8 @@ import {
   TrendingUp,
   UserCheck,
   X,
-  AlertTriangle
+  AlertTriangle,
+  ArrowLeftRight
 } from 'lucide-react';
 import { contractService } from '../src/services/contractService';
 import { PieChart as RechartsPieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
@@ -35,6 +36,12 @@ interface TicketManagerProps {
 interface TicketWithOwner extends Ticket {
   ownerName?: string;
   checkInTime?: string;
+  auctionStatus?: 'none' | 'active' | 'ended';
+  auctionInfo?: {
+    auctionId: number;
+    currentPrice: number;
+    endTime: string;
+  };
 }
 
 const TicketManager: React.FC<TicketManagerProps> = ({ wallet, onConnectWallet }) => {
@@ -153,6 +160,32 @@ const TicketManager: React.FC<TicketManagerProps> = ({ wallet, onConnectWallet }
         for (const ticketId of ticketIds) {
           try {
             const ticketData = await contractService.getTicket(ticketId);
+
+            // Check if ticket is in an active auction
+            let auctionStatus: 'none' | 'active' | 'ended' = 'none';
+            let auctionInfo: { auctionId: number; currentPrice: number; endTime: string } | undefined;
+
+            try {
+              // Check auction status via API
+              const response = await fetch(`http://localhost:3001/api/marketplace/check-ticket/${ticketId}`);
+              const auctionCheck = await response.json();
+
+              if (auctionCheck.success && auctionCheck.inAuction) {
+                auctionStatus = 'active';
+                // Get auction details if available
+                if (auctionCheck.auctionData) {
+                  auctionInfo = {
+                    auctionId: auctionCheck.auctionData.id,
+                    currentPrice: auctionCheck.auctionData.currentPrice,
+                    endTime: auctionCheck.auctionData.endTime
+                  };
+                }
+              }
+            } catch (auctionError) {
+              console.warn(`Could not check auction status for ticket ${ticketId}:`, auctionError);
+              // Continue without auction info - ticket will show as "Valid"
+            }
+
             const ticket: TicketWithOwner = {
               id: ticketId.toString(),
               eventId: event.id,
@@ -160,7 +193,9 @@ const TicketManager: React.FC<TicketManagerProps> = ({ wallet, onConnectWallet }
               purchaseDate: ticketData.purchaseDate,
               qrCodeData: `lumina://${event.id}/${ticketId}`,
               isUsed: ticketData.isUsed,
-              checkInTime: ticketData.isUsed ? new Date().toISOString() : undefined
+              checkInTime: ticketData.isUsed ? new Date().toISOString() : undefined,
+              auctionStatus,
+              auctionInfo
             };
             loadedTickets.push(ticket);
           } catch (ticketError) {
@@ -597,38 +632,105 @@ const TicketManager: React.FC<TicketManagerProps> = ({ wallet, onConnectWallet }
               </div>
 
               <div className="space-y-4">
-                {tickets.map(ticket => (
-                  <div key={ticket.id} className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5 hover:border-white/10 transition-colors">
-                    <div className="flex items-center space-x-4">
-                      <div className={`w-3 h-3 rounded-full ${ticket.isUsed ? 'bg-green-400' : 'bg-gray-400'}`} />
-                      <div>
-                        <p className="text-white font-medium">Ticket #{ticket.id.slice(-4)}</p>
-                        <p className="text-gray-400 text-sm font-mono">{truncateAddress(ticket.ownerAddress)}</p>
-                      </div>
-                    </div>
+                {tickets.map(ticket => {
+                  // Determine ticket status based on usage and auction status
+                  const getTicketStatus = () => {
+                    if (ticket.isUsed) return { text: 'Used', color: 'green' };
+                    if (ticket.auctionStatus === 'active') return { text: 'Listed for Auction', color: 'orange' };
+                    return { text: 'Valid', color: 'gray' };
+                  };
 
-                    <div className="flex items-center space-x-4">
-                      <div className="text-right">
-                        <p className={`text-sm font-medium ${ticket.isUsed ? 'text-green-400' : 'text-gray-400'}`}>
-                          {ticket.isUsed ? 'Checked In' : 'Not Checked In'}
-                        </p>
-                        {ticket.checkInTime && (
-                          <p className="text-xs text-gray-500">
-                            {new Date(ticket.checkInTime).toLocaleTimeString()}
+                  const status = getTicketStatus();
+                  const isAuctioned = ticket.auctionStatus === 'active';
+                  const isDisabled = ticket.isUsed || isAuctioned;
+
+                  return (
+                    <div key={ticket.id} className="flex items-center justify-between p-4 bg-white/5 rounded-xl border border-white/5 hover:border-white/10 transition-colors">
+                      <div className="flex items-center space-x-4">
+                        <div className={`w-3 h-3 rounded-full ${
+                          ticket.isUsed ? 'bg-green-400' :
+                          isAuctioned ? 'bg-orange-400' : 'bg-gray-400'
+                        }`} />
+                        <div>
+                          <p className="text-white font-medium">Ticket #{ticket.id.slice(-4)}</p>
+                          <p className="text-gray-400 text-sm font-mono">{truncateAddress(ticket.ownerAddress)}</p>
+                          {isAuctioned && ticket.auctionInfo && (
+                            <p className="text-orange-400 text-xs">
+                              Auction ends: {new Date(ticket.auctionInfo.endTime).toLocaleDateString()}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-4">
+                        <div className="text-right">
+                          <p className={`text-sm font-medium ${
+                            ticket.isUsed ? 'text-green-400' :
+                            isAuctioned ? 'text-orange-400' : 'text-gray-400'
+                          }`}>
+                            {ticket.isUsed ? 'Checked In' :
+                             isAuctioned ? 'In Auction' : 'Not Checked In'}
                           </p>
-                        )}
-                      </div>
+                          {ticket.checkInTime && (
+                            <p className="text-xs text-gray-500">
+                              {new Date(ticket.checkInTime).toLocaleTimeString()}
+                            </p>
+                          )}
+                        </div>
 
-                      <div className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        ticket.isUsed
-                          ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                          : 'bg-gray-500/20 text-gray-400 border border-gray-500/30'
-                      }`}>
-                        {ticket.isUsed ? '✓ Used' : '○ Valid'}
+                        <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+                          ticket.isUsed
+                            ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                            : isAuctioned
+                              ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                              : 'bg-gray-500/20 text-gray-400 border border-gray-500/30'
+                        }`}>
+                          {ticket.isUsed ? '✓ Used' :
+                           isAuctioned ? '🔨 Auction' : '○ Valid'}
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex space-x-2">
+                          {/* Reveal QR Button */}
+                          <button
+                            onClick={() => {
+                              // TODO: Implement QR reveal
+                              alert('QR Code reveal functionality coming soon!');
+                            }}
+                            disabled={isDisabled}
+                            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+                              isDisabled
+                                ? 'bg-gray-600/50 text-gray-500 cursor-not-allowed'
+                                : 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 border border-blue-500/30'
+                            }`}
+                            title={isAuctioned ? 'Cannot reveal QR for tickets in auction' :
+                                   ticket.isUsed ? 'Cannot reveal QR for used tickets' : 'Reveal QR Code'}
+                          >
+                            <QrCode className="h-3 w-3" />
+                          </button>
+
+                          {/* Transfer Button */}
+                          <button
+                            onClick={() => {
+                              // TODO: Implement transfer
+                              alert('Transfer functionality coming soon!');
+                            }}
+                            disabled={isDisabled}
+                            className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+                              isDisabled
+                                ? 'bg-gray-600/50 text-gray-500 cursor-not-allowed'
+                                : 'bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 border border-purple-500/30'
+                            }`}
+                            title={isAuctioned ? 'Cannot transfer tickets in auction' :
+                                   ticket.isUsed ? 'Cannot transfer used tickets' : 'Transfer Ticket'}
+                          >
+                            <ArrowLeftRight className="h-3 w-3" />
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
 
                 {tickets.length === 0 && (
                   <div className="text-center py-12">

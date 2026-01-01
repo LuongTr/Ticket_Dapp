@@ -23,3 +23,5 @@ rule-commit.md
 *.njsproj
 *.sln
 *.sw?
+
+IPFS_SETUP.md

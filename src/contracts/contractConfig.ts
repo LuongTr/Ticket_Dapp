@@ -45,69 +45,53 @@ export const LUMINA_TICKET_ABI = [
     "type": "error"
   },
   {
+    "anonymous": false,
     "inputs": [
       {
-        "internalType": "uint256",
-        "name": "idsLength",
+        "indexed": true,
+        "name": "auctionId",
         "type": "uint256"
       },
       {
-        "internalType": "uint256",
-        "name": "valuesLength",
+        "indexed": true,
+        "name": "ticketId",
         "type": "uint256"
-      }
-    ],
-    "name": "ERC1155InvalidArrayLength",
-    "type": "error"
-  },
-  {
-    "inputs": [
+      },
       {
-        "internalType": "address",
-        "name": "operator",
-        "type": "address"
-      }
-    ],
-    "name": "ERC1155InvalidOperator",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "receiver",
-        "type": "address"
-      }
-    ],
-    "name": "ERC1155InvalidReceiver",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "sender",
-        "type": "address"
-      }
-    ],
-    "name": "ERC1155InvalidSender",
-    "type": "error"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "operator",
+        "indexed": true,
+        "name": "seller",
         "type": "address"
       },
       {
-        "internalType": "address",
-        "name": "owner",
-        "type": "address"
+        "indexed": false,
+        "name": "metadataHash",
+        "type": "string"
       }
     ],
-    "name": "ERC1155MissingApprovalForAll",
-    "type": "error"
+    "name": "AuctionCreated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "name": "auctionId",
+        "type": "uint256"
+      },
+      {
+        "indexed": true,
+        "name": "bidder",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "name": "bidHash",
+        "type": "string"
+      }
+    ],
+    "name": "BidPlaced",
+    "type": "event"
   },
   {
     "inputs": [
@@ -1599,13 +1583,182 @@ export const LUMINA_TICKET_ABI = [
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "auctionBidHashes",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "auctionExists",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "auctionMetadataHashes",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_auctionId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "string",
+        "name": "_bidHash",
+        "type": "string"
+      }
+    ],
+    "name": "recordBid",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_ticketId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "string",
+        "name": "_metadataHash",
+        "type": "string"
+      }
+    ],
+    "name": "createAuction",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_auctionId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getAuctionBidCount",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_auctionId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getAuctionBidHashes",
+    "outputs": [
+      {
+        "internalType": "string[]",
+        "name": "",
+        "type": "string[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_auctionId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getAuctionMetadataHash",
+    "outputs": [
+      {
+        "internalType": "string",
+        "name": "",
+        "type": "string"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "nextAuctionId",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "stateMutability": "payable",
     "type": "receive"
   }
 ] as const;
 
 // Contract address from deployment
-export const CONTRACT_ADDRESS = (import.meta as any).env?.VITE_CONTRACT_ADDRESS || '0x8C4329E767C1c8D5d5786DEea225D123Ba17e8BC';
+export const CONTRACT_ADDRESS = (import.meta as any).env?.VITE_CONTRACT_ADDRESS || '0xd2c7D664cD1CF54f046BF6086AfC2cAc0B552f43';
 
 // Create contract instance (now only uses provided provider/signer)
 export function getContract(provider?: ethers.Provider, signer?: ethers.Signer) {

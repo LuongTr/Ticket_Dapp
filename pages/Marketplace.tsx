@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { WalletState, NftEvent } from '../types';
+import { auctionService, AuctionData } from '../src/services/auctionService';
 import {
   ShoppingBag,
   Gavel,
@@ -23,7 +24,9 @@ import {
   Plus,
   Minus,
   X,
-  Check
+  Check,
+  Loader2,
+  QrCode
 } from 'lucide-react';
 
 interface MarketplaceProps {
@@ -31,87 +34,83 @@ interface MarketplaceProps {
   onConnectWallet?: () => void;
 }
 
-// Mock auction data
-const MOCK_AUCTIONS = [
+// Mock auction data (converted to match AuctionData interface)
+const MOCK_AUCTIONS: AuctionData[] = [
   {
-    id: '1',
-    ticketId: '123',
-    eventId: '1',
-    event: {
-      id: '1',
-      title: 'Neon Nights Festival',
-      date: '2024-12-15',
-      location: 'Cyber Dome, Tokyo',
-      imageUrl: 'https://picsum.photos/400/300?random=1',
-      category: 'Music'
-    },
+    id: 1,
+    ticketId: 123,
+    eventId: 1,
+    event_title: 'Neon Nights Festival',
+    event_date: '2024-12-15',
+    event_location: 'Cyber Dome, Tokyo',
+    event_image_url: 'https://picsum.photos/400/300?random=1',
+    event_category: 'Music',
     sellerAddress: '0x742d35Cc6634C0532925a3b844Bc454e4438f44e',
     startingPrice: 0.1,
     currentPrice: 0.35,
     highestBidder: '0x8ba1f109551bD432803012645ac136ddd64DBA72',
     bidCount: 7,
-    endTime: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours from now
-    status: 'active'
+    endTime: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(), // 2 hours from now
+    startTime: null,
+    status: 'active',
+    createdAt: new Date().toISOString(),
   },
   {
-    id: '2',
-    ticketId: '456',
-    eventId: '2',
-    event: {
-      id: '2',
-      title: 'Future Tech Summit',
-      date: '2024-12-20',
-      location: 'Silicon Valley Center',
-      imageUrl: 'https://picsum.photos/400/300?random=2',
-      category: 'Tech'
-    },
+    id: 2,
+    ticketId: 456,
+    eventId: 2,
+    event_title: 'Future Tech Summit',
+    event_date: '2024-12-20',
+    event_location: 'Silicon Valley Center',
+    event_image_url: 'https://picsum.photos/400/300?random=2',
+    event_category: 'Tech',
     sellerAddress: '0x3a4b5c6d7e8f9012345678901234567890123456',
     startingPrice: 0.5,
     currentPrice: 0.8,
     highestBidder: '0x9876543210987654321098765432109876543210',
     bidCount: 12,
-    endTime: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes from now
-    status: 'active'
+    endTime: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 minutes from now
+    startTime: null,
+    status: 'active',
+    createdAt: new Date().toISOString(),
   },
   {
-    id: '3',
-    ticketId: '789',
-    eventId: '3',
-    event: {
-      id: '3',
-      title: 'Digital Art Exhibition',
-      date: '2025-01-10',
-      location: 'Meta Gallery',
-      imageUrl: 'https://picsum.photos/400/300?random=3',
-      category: 'Art'
-    },
+    id: 3,
+    ticketId: 789,
+    eventId: 3,
+    event_title: 'Digital Art Exhibition',
+    event_date: '2025-01-10',
+    event_location: 'Meta Gallery',
+    event_image_url: 'https://picsum.photos/400/300?random=3',
+    event_category: 'Art',
     sellerAddress: '0x1111111111111111111111111111111111111111',
     startingPrice: 0.08,
     currentPrice: 0.15,
     highestBidder: '0x2222222222222222222222222222222222222222',
     bidCount: 4,
-    endTime: new Date(Date.now() + 6 * 60 * 60 * 1000), // 6 hours from now
-    status: 'active'
+    endTime: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(), // 6 hours from now
+    startTime: null,
+    status: 'active',
+    createdAt: new Date().toISOString(),
   },
   {
-    id: '4',
-    ticketId: '101',
-    eventId: '1',
-    event: {
-      id: '1',
-      title: 'Neon Nights Festival',
-      date: '2024-12-15',
-      location: 'Cyber Dome, Tokyo',
-      imageUrl: 'https://picsum.photos/400/300?random=1',
-      category: 'Music'
-    },
+    id: 4,
+    ticketId: 101,
+    eventId: 1,
+    event_title: 'Neon Nights Festival',
+    event_date: '2024-12-15',
+    event_location: 'Cyber Dome, Tokyo',
+    event_image_url: 'https://picsum.photos/400/300?random=1',
+    event_category: 'Music',
     sellerAddress: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
     startingPrice: 0.2,
     currentPrice: 0.42,
     highestBidder: '0xfedcba0987654321fedcba0987654321fedcba09',
     bidCount: 9,
-    endTime: new Date(Date.now() + 45 * 60 * 1000), // 45 minutes from now
-    status: 'active'
+    endTime: new Date(Date.now() + 45 * 60 * 1000).toISOString(), // 45 minutes from now
+    startTime: null,
+    status: 'active',
+    createdAt: new Date().toISOString(),
   }
 ];
 
@@ -119,15 +118,85 @@ const Marketplace: React.FC<MarketplaceProps> = ({ wallet, onConnectWallet }) =>
   const [activeTab, setActiveTab] = useState<'auctions' | 'list'>('auctions');
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState<'ending-soon' | 'highest-bid' | 'newest' | 'lowest-price'>('ending-soon');
-  const [auctions, setAuctions] = useState(MOCK_AUCTIONS);
+  const [auctions, setAuctions] = useState<AuctionData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [userTickets, setUserTickets] = useState<any[]>([]);
+  const [loadingTickets, setLoadingTickets] = useState(false);
+  const [selectedTicket, setSelectedTicket] = useState<any | null>(null);
+
+  // Auction Creation Form State
+  const [auctionForm, setAuctionForm] = useState({
+    startingPrice: '',
+    startDate: '',
+    startTime: '',
+    endDate: '',
+    endTime: ''
+  });
+  const [formErrors, setFormErrors] = useState<{[key: string]: string}>({});
+  const [isCreatingAuction, setIsCreatingAuction] = useState(false);
+  const [auctionCreated, setAuctionCreated] = useState(false);
 
   // Bid Modal State
-  const [selectedAuction, setSelectedAuction] = useState<typeof MOCK_AUCTIONS[0] | null>(null);
+  const [selectedAuction, setSelectedAuction] = useState<AuctionData | null>(null);
   const [bidAmount, setBidAmount] = useState('');
   const [isPlacingBid, setIsPlacingBid] = useState(false);
 
   // Countdown timers for auctions
   const [timeLeft, setTimeLeft] = useState<{ [key: string]: { hours: number; minutes: number; seconds: number; totalMs: number } }>({});
+
+  // Load auctions on component mount
+  useEffect(() => {
+    const loadAuctions = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const auctionData = await auctionService.getAuctions();
+        setAuctions(auctionData);
+      } catch (err) {
+        console.error('Failed to load auctions:', err);
+        setError('Failed to load auctions. Please try again.');
+        // Fallback to mock data for development
+        setAuctions(MOCK_AUCTIONS);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (wallet.isConnected) {
+      loadAuctions();
+    }
+  }, [wallet.isConnected]);
+
+  // Load user tickets when switching to list tab
+  useEffect(() => {
+    const loadUserTickets = async () => {
+      if (!wallet.address || activeTab !== 'list') return;
+
+      try {
+        setLoadingTickets(true);
+        console.log('🎫 Fetching user tickets for:', wallet.address);
+
+        const response = await fetch(`http://localhost:3001/api/marketplace/user-tickets/${wallet.address}`);
+        const result = await response.json();
+
+        console.log('📥 User tickets API response:', result);
+
+        if (result.success) {
+          console.log('✅ Setting user tickets:', result.data);
+          setUserTickets(result.data);
+        } else {
+          console.log('❌ API returned error:', result.error);
+        }
+      } catch (error) {
+        console.error('❌ Failed to load user tickets:', error);
+      } finally {
+        setLoadingTickets(false);
+      }
+    };
+
+    loadUserTickets();
+  }, [wallet.address, activeTab]);
 
   // Update countdown timers every second
   useEffect(() => {
@@ -136,7 +205,22 @@ const Marketplace: React.FC<MarketplaceProps> = ({ wallet, onConnectWallet }) =>
       const newTimeLeft: { [key: string]: { hours: number; minutes: number; seconds: number; totalMs: number } } = {};
 
       auctions.forEach(auction => {
-        const timeDiff = auction.endTime.getTime() - now.getTime();
+        // Skip auctions with invalid endTime
+        if (!auction.endTime) {
+          newTimeLeft[auction.id] = { hours: 0, minutes: 0, seconds: 0, totalMs: 0 };
+          return;
+        }
+
+        // Handle both string and Date formats for endTime
+        const endTime = typeof auction.endTime === 'string' ? new Date(auction.endTime) : auction.endTime;
+
+        // Additional safety check
+        if (!endTime || isNaN(endTime.getTime())) {
+          newTimeLeft[auction.id] = { hours: 0, minutes: 0, seconds: 0, totalMs: 0 };
+          return;
+        }
+
+        const timeDiff = endTime.getTime() - now.getTime();
         if (timeDiff > 0) {
           const hours = Math.floor(timeDiff / (1000 * 60 * 60));
           const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
@@ -158,7 +242,7 @@ const Marketplace: React.FC<MarketplaceProps> = ({ wallet, onConnectWallet }) =>
 
   // Helper function to truncate addresses
   const truncateAddress = (address: string) => {
-    if (address.length <= 12) return address;
+    if (!address || address.length <= 12) return address || 'Unknown';
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
@@ -173,11 +257,343 @@ const Marketplace: React.FC<MarketplaceProps> = ({ wallet, onConnectWallet }) =>
     }
   };
 
+  // Helper function to get auction title (handles both data structures)
+  const getAuctionTitle = (auction: AuctionData) => {
+    // Real API data structure
+    if (auction.event_title) return auction.event_title;
+    // Mock data structure (fallback)
+    if ((auction as any).event?.title) return (auction as any).event.title;
+    return 'Unknown Event';
+  };
+
+  // Helper function to get auction location
+  const getAuctionLocation = (auction: AuctionData) => {
+    if (auction.event_location) return auction.event_location;
+    if ((auction as any).event?.location) return (auction as any).event.location;
+    return 'Unknown Location';
+  };
+
+  // Helper function to get event date
+  const getEventDate = (auction: AuctionData) => {
+    if (auction.event_date) return auction.event_date;
+    if ((auction as any).event?.date) return (auction as any).event.date;
+    return '';
+  };
+
+  // Helper function to get event image
+  const getEventImage = (auction: AuctionData) => {
+    if (auction.event_image_url) return auction.event_image_url;
+    if ((auction as any).event?.imageUrl) return (auction as any).event.imageUrl;
+    return 'https://picsum.photos/400/300?random=default';
+  };
+
+  // Form validation
+  const validateAuctionForm = () => {
+    const errors: {[key: string]: string} = {};
+
+    if (!selectedTicket) {
+      errors.ticket = 'Please select a ticket to auction';
+    }
+
+    if (!auctionForm.startingPrice || parseFloat(auctionForm.startingPrice) <= 0) {
+      errors.startingPrice = 'Starting price must be greater than 0';
+    }
+
+    if (!auctionForm.startDate) {
+      errors.startDate = 'Auction start date is required';
+    }
+
+    if (!auctionForm.startTime) {
+      errors.startTime = 'Auction start time is required';
+    }
+
+    if (!auctionForm.endDate) {
+      errors.endDate = 'Auction end date is required';
+    }
+
+    if (!auctionForm.endTime) {
+      errors.endTime = 'Auction end time is required';
+    }
+
+    // Validate date/time logic
+    if (auctionForm.startDate && auctionForm.endDate && auctionForm.startTime && auctionForm.endTime) {
+      const startDateTime = new Date(`${auctionForm.startDate}T${auctionForm.startTime}`);
+      const endDateTime = new Date(`${auctionForm.endDate}T${auctionForm.endTime}`);
+      const now = new Date();
+
+      if (startDateTime <= now) {
+        errors.startTime = 'Auction start time must be in the future';
+      }
+
+      if (endDateTime <= startDateTime) {
+        errors.endTime = 'Auction end time must be after start time';
+      }
+
+      // Minimum auction duration: 1 hour
+      const duration = endDateTime.getTime() - startDateTime.getTime();
+      if (duration < 60 * 60 * 1000) {
+        errors.endTime = 'Auction must last at least 1 hour';
+      }
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Handle form input changes
+  const handleFormChange = (field: string, value: string) => {
+    setAuctionForm(prev => ({ ...prev, [field]: value }));
+    // Clear error for this field when user starts typing
+    if (formErrors[field]) {
+      setFormErrors(prev => ({ ...prev, [field]: '' }));
+    }
+  };
+
+  // Handle bid placement
+  const handlePlaceBid = async () => {
+    if (!selectedAuction || !bidAmount) {
+      return;
+    }
+
+    try {
+      setIsPlacingBid(true);
+
+      // Generate message and signature for wallet verification
+      const message = `Place bid of ${bidAmount} ETH on auction for ticket #${selectedAuction.ticketId} (${getAuctionTitle(selectedAuction)}). Timestamp: ${new Date().toISOString()}`;
+
+      console.log('Requesting wallet signature for bid:', message);
+
+      // Request user signature (this will show MetaMask popup)
+      const signature = await window.ethereum.request({
+        method: 'personal_sign',
+        params: [message, wallet.address],
+      });
+
+      console.log('Signature obtained for bid:', signature);
+
+      const bidData = {
+        bidAmount: parseFloat(bidAmount),
+        signature,
+        message,
+      };
+
+      console.log('🚀 Submitting bid to backend...');
+
+      // Submit bid to backend
+      const bidResponse = await fetch(`http://localhost:3001/api/marketplace/${selectedAuction.id}/bid`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(bidData),
+      });
+
+      const bidResult = await bidResponse.json();
+
+      if (!bidResult.success) {
+        console.error('❌ Bid submission failed:', bidResult.error);
+        alert(`Bid failed: ${bidResult.error}`);
+        setIsPlacingBid(false);
+        return;
+      }
+
+      console.log('✅ Bid submitted successfully');
+
+      // Update auction data locally
+      const updatedAuctions = auctions.map(auction =>
+        auction.id === selectedAuction.id
+          ? {
+              ...auction,
+              currentPrice: parseFloat(bidAmount),
+              highestBidder: wallet.address,
+              bidCount: (auction.bidCount || 0) + 1,
+              lastBidTime: new Date().toISOString(),
+            }
+          : auction
+      );
+
+      setAuctions(updatedAuctions);
+
+      // Close modal and show success
+      setSelectedAuction(null);
+      setBidAmount('');
+
+      alert('Bid placed successfully! You are now the highest bidder.');
+
+    } catch (error) {
+      console.error('❌ Error placing bid:', error);
+      alert('Failed to place bid. Please try again.');
+    } finally {
+      setIsPlacingBid(false);
+    }
+  };
+
+  // Handle auction creation
+  const handleCreateAuction = async () => {
+    if (!validateAuctionForm() || !selectedTicket) {
+      return;
+    }
+
+    try {
+      setIsCreatingAuction(true);
+
+      // Check if ticket is already in an active auction
+      console.log('🔍 Checking if ticket is already in auction...');
+      const checkResponse = await fetch(`http://localhost:3001/api/marketplace/check-ticket/${selectedTicket.ticketId}`);
+      const checkResult = await checkResponse.json();
+
+      if (checkResult.success && checkResult.inAuction) {
+        setFormErrors({ ticket: "This ticket is already listed for auction" });
+        setIsCreatingAuction(false);
+        return;
+      }
+
+      // Combine date and time
+      const startDateTime = new Date(`${auctionForm.startDate}T${auctionForm.startTime}`).toISOString();
+      const endDateTime = new Date(`${auctionForm.endDate}T${auctionForm.endTime}`).toISOString();
+
+      // Generate message and signature for wallet verification
+      const message = `Create auction for ticket #${selectedTicket.ticketId} (${selectedTicket.eventTitle}) with starting price ${auctionForm.startingPrice} ETH. Timestamp: ${new Date().toISOString()}`;
+
+      console.log('Requesting wallet signature for:', message);
+
+      // Request user signature (this will show MetaMask popup)
+      const signature = await window.ethereum.request({
+        method: 'personal_sign',
+        params: [message, wallet.address],
+      });
+
+      console.log('Signature obtained:', signature);
+
+      const auctionData = {
+        ticketId: selectedTicket.ticketId.toString(),
+        eventId: selectedTicket.eventId.toString(),
+        startingPrice: parseFloat(auctionForm.startingPrice),
+        endTime: endDateTime,
+        startTime: startDateTime,
+        signature,
+        message,
+      };
+
+      console.log('🚀 Step 1: Preparing auction metadata...');
+
+      // Step 1: Call backend to prepare auction metadata and get IPFS hash
+      const prepareResponse = await fetch('http://localhost:3001/api/marketplace/auctions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(auctionData),
+      });
+
+      const prepareResult = await prepareResponse.json();
+
+      if (!prepareResult.success) {
+        console.error('❌ Auction preparation failed:', prepareResult.error);
+        setFormErrors({ submit: prepareResult.error || 'Failed to prepare auction' });
+        setIsCreatingAuction(false);
+        return;
+      }
+
+      console.log('✅ Step 1 complete: Got IPFS hash and metadata');
+
+      const { ipfsHash, auctionMetadata, sellerAddress } = prepareResult.data;
+
+      // Step 2: Create auction directly on blockchain
+      console.log('🚀 Step 2: Creating auction on blockchain...');
+
+      try {
+        // Import contract service dynamically to avoid circular imports
+        const { contractService } = await import('../src/services/contractService');
+
+        // Initialize contract service if needed
+        if (!contractService.isConnected()) {
+          await contractService.initializeWithMetaMask();
+        }
+
+        // Create auction on blockchain
+        const auctionId = await contractService.createAuction(
+          parseInt(selectedTicket.ticketId),
+          ipfsHash
+        );
+
+        console.log('✅ Step 2 complete: Auction created on blockchain with ID:', auctionId);
+
+        // Step 3: Register auction in database
+        console.log('🚀 Step 3: Registering auction in database...');
+
+        const registerData = {
+          auctionId,
+          ipfsHash,
+          auctionMetadata,
+          signature,
+          message,
+        };
+
+        const registerResponse = await fetch('http://localhost:3001/api/marketplace/register', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(registerData),
+        });
+
+        const registerResult = await registerResponse.json();
+
+        if (!registerResult.success) {
+          console.error('❌ Auction registration failed:', registerResult.error);
+          setFormErrors({ submit: 'Auction created on blockchain but registration failed. Contact support.' });
+          setIsCreatingAuction(false);
+          return;
+        }
+
+        console.log('✅ Step 3 complete: Auction registered in database');
+        console.log('🎉 Auction creation fully complete!');
+
+        setAuctionCreated(true);
+
+        // Immediately refresh auctions list to show the new auction
+        console.log('🔄 Refreshing auctions list...');
+        try {
+          const updatedAuctions = await auctionService.getAuctions();
+          setAuctions(updatedAuctions);
+          console.log('✅ Auctions list updated with new auction');
+        } catch (refreshError) {
+          console.error('❌ Failed to refresh auctions:', refreshError);
+        }
+
+        // Reset form after successful creation
+        setTimeout(() => {
+          setSelectedTicket(null);
+          setAuctionForm({
+            startingPrice: '',
+            startDate: '',
+            startTime: '',
+            endDate: '',
+            endTime: ''
+          });
+          setFormErrors({});
+          setAuctionCreated(false);
+        }, 2000);
+
+      } catch (blockchainError) {
+        console.error('❌ Blockchain auction creation failed:', blockchainError);
+        setFormErrors({ submit: 'Blockchain transaction failed. Please try again.' });
+      }
+
+    } catch (error) {
+      console.error('❌ Error creating auction:', error);
+      setFormErrors({ submit: 'Network error. Please try again.' });
+    } finally {
+      setIsCreatingAuction(false);
+    }
+  };
+
   // Filter and sort auctions
   const filteredAuctions = auctions
     .filter(auction =>
-      auction.event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      auction.event.location.toLowerCase().includes(searchTerm.toLowerCase())
+      getAuctionTitle(auction).toLowerCase().includes(searchTerm.toLowerCase()) ||
+      getAuctionLocation(auction).toLowerCase().includes(searchTerm.toLowerCase())
     )
     .sort((a, b) => {
       switch (sortBy) {
@@ -186,7 +602,10 @@ const Marketplace: React.FC<MarketplaceProps> = ({ wallet, onConnectWallet }) =>
         case 'highest-bid':
           return b.currentPrice - a.currentPrice;
         case 'newest':
-          return b.endTime.getTime() - a.endTime.getTime();
+          // Handle both string and Date formats
+          const aTime = typeof a.endTime === 'string' ? new Date(a.endTime).getTime() : (a.endTime as any)?.getTime?.() || 0;
+          const bTime = typeof b.endTime === 'string' ? new Date(b.endTime).getTime() : (b.endTime as any)?.getTime?.() || 0;
+          return bTime - aTime;
         case 'lowest-price':
           return a.currentPrice - b.currentPrice;
         default:
@@ -307,9 +726,9 @@ const Marketplace: React.FC<MarketplaceProps> = ({ wallet, onConnectWallet }) =>
                   <div key={auction.id} className="group bg-lumina-card border border-white/5 rounded-2xl overflow-hidden hover:border-lumina-glow/30 transition-all shadow-lg hover:shadow-lumina-glow/5">
                     {/* Event Image with Auction Badge */}
                     <div className="relative">
-                      <img
-                        src={auction.event.imageUrl}
-                        alt={auction.event.title}
+                    <img
+                        src={getEventImage(auction)}
+                        alt={getAuctionTitle(auction)}
                         className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
                       />
                       <div className="absolute inset-0 bg-black/20" />
@@ -333,16 +752,16 @@ const Marketplace: React.FC<MarketplaceProps> = ({ wallet, onConnectWallet }) =>
 
                     {/* Auction Details */}
                     <div className="p-4">
-                      <h3 className="text-lg font-bold text-white mb-2 line-clamp-2">{auction.event.title}</h3>
+                      <h3 className="text-lg font-bold text-white mb-2 line-clamp-2">{getAuctionTitle(auction)}</h3>
 
                       <div className="space-y-2 mb-4">
                         <div className="flex items-center text-sm text-gray-400">
                           <Calendar className="h-4 w-4 mr-2" />
-                          {new Date(auction.event.date).toLocaleDateString('en-GB')}
+                          {new Date(getEventDate(auction)).toLocaleDateString('en-GB')}
                         </div>
                         <div className="flex items-center text-sm text-gray-400">
                           <MapPin className="h-4 w-4 mr-2" />
-                          {auction.event.location}
+                          {getAuctionLocation(auction)}
                         </div>
                         <div className="flex items-center text-sm text-gray-400">
                           <User className="h-4 w-4 mr-2" />
@@ -402,96 +821,208 @@ const Marketplace: React.FC<MarketplaceProps> = ({ wallet, onConnectWallet }) =>
                 {/* Ticket Selection */}
                 <div>
                   <label className="block text-sm font-medium text-gray-300 mb-3">Select Ticket to Auction</label>
-                  <div className="bg-white/5 border border-white/10 rounded-xl p-4">
-                    <div className="text-center py-8">
-                      <p className="text-gray-400 mb-2">No tickets available for auction</p>
-                      <p className="text-sm text-gray-500">Purchase tickets first, then list them here</p>
-                    </div>
+                  <div className="bg-white/5 border border-white/10 rounded-xl p-4 max-h-80 overflow-y-auto">
+                    {loadingTickets ? (
+                      <div className="text-center py-8">
+                        <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-lumina-glow" />
+                        <p className="text-gray-400">Loading your tickets...</p>
+                      </div>
+                    ) : userTickets.length > 0 ? (
+                      <div className="space-y-3">
+                        {userTickets.map(ticket => (
+                          <div
+                            key={ticket.id}
+                            className={`flex items-center justify-between p-4 rounded-lg border-2 transition-all cursor-pointer ${
+                              selectedTicket?.id === ticket.id
+                                ? 'border-lumina-glow bg-lumina-glow/10'
+                                : 'border-white/10 bg-white/5 hover:border-white/20'
+                            }`}
+                            onClick={() => setSelectedTicket(ticket)}
+                          >
+                            <div className="flex items-center space-x-4">
+                              <img
+                                src={ticket.eventImage || 'https://picsum.photos/80/80?random=default'}
+                                alt={ticket.eventTitle}
+                                className="w-16 h-16 rounded-lg object-cover"
+                              />
+                              <div>
+                                <h4 className="font-medium text-white">{ticket.eventTitle}</h4>
+                                <p className="text-sm text-gray-400">
+                                  {new Date(ticket.eventDate).toLocaleDateString('en-GB')} • {ticket.eventLocation}
+                                </p>
+                                <p className="text-xs text-gray-500">Ticket #{ticket.ticketId}</p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              {selectedTicket?.id === ticket.id ? (
+                                <Check className="h-6 w-6 text-lumina-glow" />
+                              ) : (
+                                <div className="w-6 h-6 border-2 border-white/30 rounded-full"></div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <p className="text-gray-400 mb-2">No unused tickets available for auction</p>
+                        <p className="text-sm text-gray-500">Purchase tickets first, then list them here</p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 {/* Auction Settings */}
                 <div className="space-y-6">
+                  {/* Form Errors */}
+                  {formErrors.submit && (
+                    <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4">
+                      <p className="text-red-400 text-sm">{formErrors.submit}</p>
+                    </div>
+                  )}
+
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-3">Starting Price</label>
+                    <label className="block text-sm font-medium text-gray-300 mb-3">
+                      Starting Price {formErrors.startingPrice && <span className="text-red-400">*</span>}
+                    </label>
                     <div className="relative">
                       <input
                         type="number"
                         step="0.01"
-                        min="0"
+                        min="0.01"
                         placeholder="0.10"
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-lumina-glow/50 focus:ring-1 focus:ring-lumina-glow/20 pr-12"
-                        disabled
+                        value={auctionForm.startingPrice}
+                        onChange={(e) => handleFormChange('startingPrice', e.target.value)}
+                        className={`w-full bg-white/5 border rounded-xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-1 pr-12 ${
+                          formErrors.startingPrice
+                            ? 'border-red-500/50 focus:border-red-500/50 focus:ring-red-500/20'
+                            : 'border-white/10 focus:border-lumina-glow/50 focus:ring-lumina-glow/20'
+                        }`}
                       />
                       <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">ETH</span>
                     </div>
+                    {formErrors.startingPrice && (
+                      <p className="text-red-400 text-sm mt-1">{formErrors.startingPrice}</p>
+                    )}
                   </div>
 
                   {/* Auction Start Date & Time */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-3">Auction Start</label>
+                    <label className="block text-sm font-medium text-gray-300 mb-3">
+                      Auction Start {(formErrors.startDate || formErrors.startTime) && <span className="text-red-400">*</span>}
+                    </label>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <input
-                        type="date"
-                        className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-lumina-glow/50 focus:ring-1 focus:ring-lumina-glow/20"
-                        disabled
-                      />
-                      <input
-                        type="time"
-                        className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-lumina-glow/50 focus:ring-1 focus:ring-lumina-glow/20"
-                        disabled
-                      />
+                      <div>
+                        <input
+                          type="date"
+                          value={auctionForm.startDate}
+                          onChange={(e) => handleFormChange('startDate', e.target.value)}
+                          className={`w-full bg-white/5 border rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-1 ${
+                            formErrors.startDate
+                              ? 'border-red-500/50 focus:border-red-500/50 focus:ring-red-500/20'
+                              : 'border-white/10 focus:border-lumina-glow/50 focus:ring-lumina-glow/20'
+                          }`}
+                          style={{ colorScheme: 'dark' }}
+                        />
+                        {formErrors.startDate && (
+                          <p className="text-red-400 text-sm mt-1">{formErrors.startDate}</p>
+                        )}
+                      </div>
+                      <div>
+                        <input
+                          type="time"
+                          value={auctionForm.startTime}
+                          onChange={(e) => handleFormChange('startTime', e.target.value)}
+                          className={`w-full bg-white/5 border rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-1 ${
+                            formErrors.startTime
+                              ? 'border-red-500/50 focus:border-red-500/50 focus:ring-red-500/20'
+                              : 'border-white/10 focus:border-lumina-glow/50 focus:ring-lumina-glow/20'
+                          }`}
+                          style={{ colorScheme: 'dark' }}
+                        />
+                        {formErrors.startTime && (
+                          <p className="text-red-400 text-sm mt-1">{formErrors.startTime}</p>
+                        )}
+                      </div>
                     </div>
                   </div>
 
                   {/* Auction End Date & Time */}
                   <div>
-                    <label className="block text-sm font-medium text-gray-300 mb-3">Auction End</label>
+                    <label className="block text-sm font-medium text-gray-300 mb-3">
+                      Auction End {(formErrors.endDate || formErrors.endTime) && <span className="text-red-400">*</span>}
+                    </label>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <input
-                        type="date"
-                        className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-lumina-glow/50 focus:ring-1 focus:ring-lumina-glow/20"
-                        disabled
-                      />
-                      <input
-                        type="time"
-                        className="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-lumina-glow/50 focus:ring-1 focus:ring-lumina-glow/20"
-                        disabled
-                      />
+                      <div>
+                        <input
+                          type="date"
+                          value={auctionForm.endDate}
+                          onChange={(e) => handleFormChange('endDate', e.target.value)}
+                          className={`w-full bg-white/5 border rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-1 ${
+                            formErrors.endDate
+                              ? 'border-red-500/50 focus:border-red-500/50 focus:ring-red-500/20'
+                              : 'border-white/10 focus:border-lumina-glow/50 focus:ring-lumina-glow/20'
+                          }`}
+                          style={{ colorScheme: 'dark' }}
+                        />
+                        {formErrors.endDate && (
+                          <p className="text-red-400 text-sm mt-1">{formErrors.endDate}</p>
+                        )}
+                      </div>
+                      <div>
+                        <input
+                          type="time"
+                          value={auctionForm.endTime}
+                          onChange={(e) => handleFormChange('endTime', e.target.value)}
+                          className={`w-full bg-white/5 border rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-1 ${
+                            formErrors.endTime
+                              ? 'border-red-500/50 focus:border-red-500/50 focus:ring-red-500/20'
+                              : 'border-white/10 focus:border-lumina-glow/50 focus:ring-lumina-glow/20'
+                          }`}
+                          style={{ colorScheme: 'dark' }}
+                        />
+                        {formErrors.endTime && (
+                          <p className="text-red-400 text-sm mt-1">{formErrors.endTime}</p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Preview */}
-                <div className="bg-white/5 border border-white/10 rounded-xl p-6">
-                  <h4 className="text-lg font-medium text-white mb-4">Auction Preview</h4>
-                  <div className="text-center py-8">
-                    <Clock className="h-8 w-8 text-gray-500 mx-auto mb-2" />
-                    <p className="text-gray-400">Select a ticket to see preview</p>
-                  </div>
-                </div>
+
 
                 {/* Action Buttons */}
                 <div className="flex gap-4">
                   <button
-                    className="flex-1 py-4 bg-lumina-glow text-lumina-dark font-bold rounded-xl hover:bg-lumina-glow/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    disabled
+                    onClick={handleCreateAuction}
+                    disabled={isCreatingAuction || !selectedTicket}
+                    className="flex-1 py-4 bg-lumina-glow text-lumina-dark font-bold rounded-xl hover:bg-lumina-glow/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                   >
-                    Create Auction
+                    {isCreatingAuction ? (
+                      <>
+                        <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                        Creating Auction...
+                      </>
+                    ) : (
+                      'Create Auction'
+                    )}
                   </button>
                   <Link
                     to="/dashboard"
-                    className="px-6 py-4 bg-white/5 border border-white/10 rounded-xl text-white hover:bg-white/10 transition-colors text-center"
+                    className="px-6 py-4 bg-white/5 border border-white/10 rounded-xl text-white hover:bg-white/10 transition-colors text-center flex items-center justify-center"
                   >
                     View My Tickets
                   </Link>
                 </div>
 
-                <div className="text-center">
-                  <p className="text-sm text-gray-500">
-                    Auctions are coming soon! For now, use the dashboard to manage your tickets.
-                  </p>
-                </div>
+                {/* Success Message */}
+                {auctionCreated && (
+                  <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4 text-center">
+                    <Check className="h-8 w-8 text-green-400 mx-auto mb-2" />
+                    <h4 className="text-lg font-medium text-green-400 mb-1">Auction Created Successfully!</h4>
+                    <p className="text-sm text-green-300">Your ticket is now listed for auction in the marketplace.</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -514,7 +1045,7 @@ const Marketplace: React.FC<MarketplaceProps> = ({ wallet, onConnectWallet }) =>
               <div className="text-center mb-6">
                 <h3 className="text-2xl font-display font-bold text-white mb-2">Place Your Bid</h3>
                 <p className="text-gray-400 text-sm">
-                  {selectedAuction.event.title}
+                  {getAuctionTitle(selectedAuction)}
                 </p>
               </div>
 
@@ -583,12 +1114,7 @@ const Marketplace: React.FC<MarketplaceProps> = ({ wallet, onConnectWallet }) =>
                   Cancel
                 </button>
                 <button
-                  onClick={() => {
-                    // TODO: Implement bid submission
-                    alert('Bid functionality coming soon! This would submit your bid to the blockchain.');
-                    setSelectedAuction(null);
-                    setBidAmount('');
-                  }}
+                  onClick={handlePlaceBid}
                   disabled={
                     !bidAmount ||
                     parseFloat(bidAmount) <= selectedAuction.currentPrice ||

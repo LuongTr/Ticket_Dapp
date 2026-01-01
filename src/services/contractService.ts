@@ -472,6 +472,143 @@ export class ContractService {
     return CONTRACT_ADDRESS;
   }
 
+  // AUCTION FUNCTIONS
+
+  /**
+   * Create a new auction by calling the smart contract
+   * @param ticketId - ID of the ticket being auctioned
+   * @param metadataHash - IPFS hash of auction metadata
+   * @returns Promise with auction ID
+   */
+  async createAuction(ticketId: number, metadataHash: string): Promise<number> {
+    if (!this.contract || !this.signer) {
+      throw new Error('Contract not initialized or signer not available');
+    }
+
+    try {
+      console.log(`🔨 Creating auction for ticket ${ticketId} on blockchain...`);
+
+      const tx = await (this.contract as any).createAuction(ticketId, metadataHash);
+      const receipt = await tx.wait();
+
+      console.log('✅ Auction created on blockchain:', receipt.hash);
+
+      // Extract auction ID from events
+      const event = receipt.logs.find((log: any) => {
+        try {
+          const parsed = this.contract!.interface.parseLog(log);
+          return parsed.name === 'AuctionCreated';
+        } catch (e) {
+          return false;
+        }
+      });
+
+      if (event) {
+        const parsedEvent = this.contract!.interface.parseLog(event);
+        const auctionId = Number(parsedEvent.args.auctionId);
+        console.log(`🎯 Auction ID: ${auctionId}`);
+        return auctionId;
+      }
+
+      throw new Error('AuctionCreated event not found');
+    } catch (error) {
+      console.error('❌ Failed to create auction:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Record a bid on the blockchain
+   * @param auctionId - ID of the auction
+   * @param bidHash - IPFS hash of bid data
+   * @returns Promise<void>
+   */
+  async recordBid(auctionId: number, bidHash: string): Promise<void> {
+    if (!this.contract || !this.signer) {
+      throw new Error('Contract not initialized or signer not available');
+    }
+
+    try {
+      console.log(`💰 Recording bid for auction ${auctionId} on blockchain...`);
+
+      const tx = await (this.contract as any).recordBid(auctionId, bidHash);
+      const receipt = await tx.wait();
+
+      console.log('✅ Bid recorded on blockchain:', receipt.hash);
+    } catch (error) {
+      console.error('❌ Failed to record bid:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get auction metadata hash from blockchain
+   * @param auctionId - ID of the auction
+   * @returns Promise with IPFS hash string
+   */
+  async getAuctionMetadataHash(auctionId: number): Promise<string> {
+    if (!this.contract) throw new Error('Contract not initialized');
+
+    try {
+      const hash = await (this.contract as any).getAuctionMetadataHash(auctionId);
+      return hash;
+    } catch (error) {
+      console.error('❌ Failed to get auction metadata hash:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all bid hashes for an auction from blockchain
+   * @param auctionId - ID of the auction
+   * @returns Promise with array of IPFS hash strings
+   */
+  async getAuctionBidHashes(auctionId: number): Promise<string[]> {
+    if (!this.contract) throw new Error('Contract not initialized');
+
+    try {
+      const hashes = await (this.contract as any).getAuctionBidHashes(auctionId);
+      return hashes;
+    } catch (error) {
+      console.error('❌ Failed to get auction bid hashes:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get bid count for an auction from blockchain
+   * @param auctionId - ID of the auction
+   * @returns Promise with bid count number
+   */
+  async getAuctionBidCount(auctionId: number): Promise<number> {
+    if (!this.contract) throw new Error('Contract not initialized');
+
+    try {
+      const count = await (this.contract as any).getAuctionBidCount(auctionId);
+      return Number(count);
+    } catch (error) {
+      console.error('❌ Failed to get auction bid count:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Check if an auction exists on blockchain
+   * @param auctionId - ID of the auction
+   * @returns Promise with boolean
+   */
+  async auctionExists(auctionId: number): Promise<boolean> {
+    if (!this.contract) throw new Error('Contract not initialized');
+
+    try {
+      const exists = await (this.contract as any).auctionExists(auctionId);
+      return exists;
+    } catch (error) {
+      console.error('❌ Failed to check auction existence:', error);
+      return false;
+    }
+  }
+
   // Event listeners can be added later once basic integration is working
   // onEventCreated(callback: (eventId: number, organizer: string, title: string) => void) {
   //   // Implementation for real-time event updates
@@ -479,6 +616,14 @@ export class ContractService {
 
   // onTicketMinted(callback: (ticketId: number, eventId: number, buyer: string, ticketType: number) => void) {
   //   // Implementation for real-time ticket updates
+  // }
+
+  // onAuctionCreated(callback: (auctionId: number, ticketId: number, seller: string, metadataHash: string) => void) {
+  //   // Implementation for real-time auction updates
+  // }
+
+  // onBidPlaced(callback: (auctionId: number, bidder: string, bidHash: string) => void) {
+  //   // Implementation for real-time bid updates
   // }
 }
 

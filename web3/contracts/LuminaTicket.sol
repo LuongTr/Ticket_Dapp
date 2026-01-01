@@ -39,8 +39,14 @@ contract LuminaTicket is ERC1155, Ownable, ReentrancyGuard {
     mapping(uint256 => mapping(uint256 => uint256)) public ticketTypeSupply; // eventId => ticketType => supply
     mapping(address => uint256) public organizerRoyalties; // accumulated royalties for organizers
 
+    // IPFS Hash Storage for Decentralized Auctions
+    mapping(uint256 => string) public auctionMetadataHashes; // auctionId => IPFS hash of auction metadata
+    mapping(uint256 => string[]) public auctionBidHashes; // auctionId => array of bid IPFS hashes
+    mapping(uint256 => bool) public auctionExists; // auctionId => exists flag
+
     uint256 public nextEventId = 1;
     uint256 public nextTicketId = 1;
+    uint256 public nextAuctionId = 1;
 
     // Events
     event EventCreated(
@@ -61,6 +67,19 @@ contract LuminaTicket is ERC1155, Ownable, ReentrancyGuard {
     );
     event TicketUsed(uint256 indexed ticketId);
     event RoyaltyWithdrawn(address indexed organizer, uint256 amount);
+
+    // Auction Events
+    event AuctionCreated(
+        uint256 indexed auctionId,
+        uint256 indexed ticketId,
+        address indexed seller,
+        string metadataHash
+    );
+    event BidPlaced(
+        uint256 indexed auctionId,
+        address indexed bidder,
+        string bidHash
+    );
 
     constructor()
         ERC1155("https://lumina-tickets.com/api/token/{id}.json")
@@ -423,6 +442,83 @@ contract LuminaTicket is ERC1155, Ownable, ReentrancyGuard {
 
             emit TicketMinted(ticketId, _eventId, _recipients[i], _ticketType);
         }
+    }
+
+    // ===== AUCTION FUNCTIONS =====
+
+    /**
+     * Create a new auction by storing IPFS metadata hash
+     * @param _ticketId The ticket being auctioned
+     * @param _metadataHash IPFS hash containing auction metadata
+     */
+    function createAuction(
+        uint256 _ticketId,
+        string memory _metadataHash
+    ) external returns (uint256) {
+        TicketData storage ticket = tickets[_ticketId];
+
+        // Verify ticket ownership and validity
+        require(ticket.ownerAddress == msg.sender, "Not ticket owner");
+        require(!ticket.isUsed, "Ticket already used");
+        require(bytes(_metadataHash).length > 0, "Invalid metadata hash");
+
+        // Generate auction ID
+        uint256 auctionId = nextAuctionId++;
+
+        // Store auction data
+        auctionMetadataHashes[auctionId] = _metadataHash;
+        auctionExists[auctionId] = true;
+
+        emit AuctionCreated(auctionId, _ticketId, msg.sender, _metadataHash);
+        return auctionId;
+    }
+
+    /**
+     * Record a bid on an auction by storing IPFS bid hash
+     * @param _auctionId The auction ID
+     * @param _bidHash IPFS hash containing bid data
+     */
+    function recordBid(uint256 _auctionId, string memory _bidHash) external {
+        require(auctionExists[_auctionId], "Auction does not exist");
+        require(bytes(_bidHash).length > 0, "Invalid bid hash");
+
+        // Store bid hash
+        auctionBidHashes[_auctionId].push(_bidHash);
+
+        emit BidPlaced(_auctionId, msg.sender, _bidHash);
+    }
+
+    /**
+     * Get auction metadata hash
+     * @param _auctionId The auction ID
+     */
+    function getAuctionMetadataHash(
+        uint256 _auctionId
+    ) external view returns (string memory) {
+        require(auctionExists[_auctionId], "Auction does not exist");
+        return auctionMetadataHashes[_auctionId];
+    }
+
+    /**
+     * Get all bid hashes for an auction
+     * @param _auctionId The auction ID
+     */
+    function getAuctionBidHashes(
+        uint256 _auctionId
+    ) external view returns (string[] memory) {
+        require(auctionExists[_auctionId], "Auction does not exist");
+        return auctionBidHashes[_auctionId];
+    }
+
+    /**
+     * Get total number of bids for an auction
+     * @param _auctionId The auction ID
+     */
+    function getAuctionBidCount(
+        uint256 _auctionId
+    ) external view returns (uint256) {
+        require(auctionExists[_auctionId], "Auction does not exist");
+        return auctionBidHashes[_auctionId].length;
     }
 
     // Contract can receive ETH for royalties
