@@ -3,6 +3,7 @@ import { generateEventConcept } from '../services/geminiService';
 import { NftEvent } from '../types';
 import { Sparkles, Loader2, Image as ImageIcon, Upload, Wallet, AlertCircle } from 'lucide-react';
 import { contractService } from '../src/services/contractService';
+import toast from 'react-hot-toast';
 
 interface CreateEventProps {
   onEventCreated: (event: NftEvent) => void;
@@ -49,7 +50,8 @@ const CreateEvent: React.FC<CreateEventProps> = ({ onEventCreated, walletAddress
       }
     } catch (e) {
       console.error(e);
-      alert("Failed to generate with AI. Please try again.");
+      //alert("Failed to generate with AI. Please try again.");
+      toast.error("Failed to generate with AI. Please try again.");
     } finally {
       setIsGenerating(false);
     }
@@ -119,7 +121,8 @@ const CreateEvent: React.FC<CreateEventProps> = ({ onEventCreated, walletAddress
       onEventCreated(newEvent);
 
       // Success message
-      alert(`🎉 Event "${formData.title}" created successfully on the blockchain!\n\nEvent ID: ${eventId}\n\nYou can now sell tickets for this event.`);
+      //alert(`Event "${formData.title}" created successfully on the blockchain!\n\nEvent ID: ${eventId}\n\nYou can now sell tickets for this event.`);
+      toast.success(`Event "${formData.title}" created successfully!`);
 
       // Reset form
       setFormData({
@@ -195,7 +198,6 @@ const CreateEvent: React.FC<CreateEventProps> = ({ onEventCreated, walletAddress
           {error && (
             <div className="mb-6 p-4 bg-red-900/20 border border-red-500/20 rounded-xl">
               <div className="flex items-center space-x-2 text-red-400">
-                <AlertCircle className="h-5 w-5" />
                 <span className="font-medium">Error</span>
               </div>
               <p className="text-red-300 text-sm mt-1">{error}</p>

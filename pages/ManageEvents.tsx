@@ -140,7 +140,7 @@ const ManageEvents: React.FC<ManageEventsProps> = ({ wallet, onConnectWallet }) 
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <Loader2 className="h-12 w-12 animate-spin text-lumina-glow mb-4" />
           <h3 className="text-xl font-bold text-white mb-2">Loading Your Events</h3>
-          <p className="text-gray-400">Fetching events from the blockchain...</p>
+          {/* <p className="text-gray-400">Fetching events from the blockchain...</p> */}
         </div>
       </div>
     );
@@ -194,7 +194,7 @@ const ManageEvents: React.FC<ManageEventsProps> = ({ wallet, onConnectWallet }) 
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <Link
-                to="/explore"
+                to="/manage"
                 className="flex items-center space-x-2 px-4 py-2 bg-black/30 backdrop-blur-md border border-white/10 rounded-full text-white hover:bg-white/10 transition-all"
               >
                 <ArrowLeft className="h-4 w-4" />
@@ -270,7 +270,7 @@ const ManageEvents: React.FC<ManageEventsProps> = ({ wallet, onConnectWallet }) 
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value as 'all' | 'upcoming' | 'today' | 'past')}
-                  className="appearance-none pl-10 pr-8 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-lumina-glow/50 focus:ring-1 focus:ring-lumina-glow/20 min-w-32"
+                  className="appearance-none pl-10 pr-8 py-2 bg-black/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-lumina-glow/50 focus:ring-1 focus:ring-lumina-glow/20 min-w-32 [& option]:bg-black"
                 >
                   <option value="all">All Events</option>
                   <option value="upcoming">Upcoming</option>

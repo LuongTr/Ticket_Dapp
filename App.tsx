@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import toast, { Toaster } from 'react-hot-toast';
 import Navbar from './components/Navbar';
 import Home from './pages/Home';
 import Explore from './pages/Explore';
@@ -90,6 +91,7 @@ const App: React.FC = () => {
   const [events, setEvents] = useState<NftEvent[]>(MOCK_EVENTS);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [mintingEventId, setMintingEventId] = useState<string | null>(null);
+  const [eventDataRefreshTrigger, setEventDataRefreshTrigger] = useState(0);
 
   // Helper to fetch balance and update wallet state
   const updateWalletState = async (address: string) => {
@@ -122,10 +124,10 @@ const App: React.FC = () => {
         }
       } catch (error) {
         console.error("User denied connection", error);
-        alert("Connection request was rejected.");
+        toast.error("Connection request was rejected.");
       }
     } else {
-      alert("MetaMask is not installed. Please install it to use this app.");
+      toast.error("MetaMask is not installed. Please install it to use this app.");
       window.open('https://metamask.io/download/', '_blank');
     }
   };
@@ -175,7 +177,7 @@ const App: React.FC = () => {
 
   const handleBuyTicket = async (event: NftEvent, onSuccess?: () => void) => {
     if (!wallet.isConnected) {
-      alert("Please connect your wallet first.");
+      toast("Please connect your wallet first.");
       connectWallet();
       return;
     }
@@ -217,20 +219,20 @@ const App: React.FC = () => {
         onSuccess();
       }
 
-      alert(`🎉 Successfully minted ticket for ${event.title}!\n\nYour NFT ticket has been added to your wallet. Check your Dashboard to view it.`);
+      toast.success(`Successfully bought ticket for ${event.title}!`);
 
     } catch (error) {
       console.error('Failed to mint ticket:', error);
 
       // Handle specific error types
       if (error.message?.includes('insufficient funds')) {
-        alert('❌ Transaction failed: Insufficient funds in your wallet.');
+        toast.error('Transaction failed: Insufficient funds in your wallet.');
       } else if (error.message?.includes('user rejected')) {
-        alert('❌ Transaction cancelled: You rejected the transaction.');
+        toast.error('Transaction cancelled: You rejected the transaction.');
       } else if (error.message?.includes('network')) {
-        alert('❌ Network error: Please check your connection and try again.');
+        toast.error('Network error: Please check your connection and try again.');
       } else {
-        alert(`❌ Failed to mint ticket: ${error.message || 'Unknown error'}`);
+        toast.error(`Failed to mint ticket: ${error.message || 'Unknown error'}`);
       }
     } finally {
       setMintingEventId(null);
@@ -239,7 +241,7 @@ const App: React.FC = () => {
 
   const handleEventCreated = (newEvent: NftEvent) => {
     setEvents([newEvent, ...events]);
-    alert("Event minted to the blockchain successfully!");
+    toast.success("Event minted to the blockchain successfully!");
   };
 
   const handleTicketUse = (ticketId: string) => {
@@ -252,12 +254,12 @@ const App: React.FC = () => {
     setTickets(prev => prev.map(t =>
         t.id === ticketId ? { ...t, ownerAddress: toAddress } : t
     ));
-    alert(`Ticket successfully transferred to ${toAddress}`);
+    toast.success(`Ticket successfully transferred to ${toAddress}`);
   };
 
   const handleAddReview = (eventId: string, rating: number, comment: string) => {
     if (!wallet.isConnected) {
-        alert("Please connect your wallet to review.");
+        toast("Please connect your wallet to review.");
         return;
     }
 
@@ -272,6 +274,11 @@ const App: React.FC = () => {
     setEvents(events.map(e =>
         e.id === eventId ? { ...e, reviews: [newReview, ...e.reviews] } : e
     ));
+  };
+
+  // Function to trigger event data refresh across the app
+  const refreshEventData = () => {
+    setEventDataRefreshTrigger(prev => prev + 1);
   };
 
   return (
@@ -303,18 +310,15 @@ const App: React.FC = () => {
 
             <Route
               path="/events/:id"
-              element={
+              element={(
                 <EventDetails
                   wallet={wallet}
                   onBuyTicket={handleBuyTicket}
                   mintingEventId={mintingEventId}
-                  onMintSuccess={() => {
-                    // This callback will be called to refresh event data
-                    // For now, we'll just reload the page to refresh all data
-                    window.location.reload();
-                  }}
+                  onMintSuccess={refreshEventData}
+                  refreshTrigger={eventDataRefreshTrigger}
                 />
-              }
+              )}
             />
             <Route
               path="/create"
@@ -362,6 +366,19 @@ const App: React.FC = () => {
             />
           </Routes>
         </main>
+
+        {/* Toast Notifications */}
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            duration: 4000,
+            style: {
+              background: '#1f2937',
+              color: '#ffffff',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+            },
+          }}
+        />
 
         {/* Simple Footer */}
         <footer className="border-t border-white/5 py-10 mt-20 bg-lumina-card">

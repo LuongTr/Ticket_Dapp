@@ -1,19 +1,21 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { NftEvent, WalletState } from '../types';
 import { ArrowLeft, Calendar, MapPin, Tag, User, Share2, Ticket as TicketIcon, Clock, ShieldCheck, CalendarPlus, Download, ExternalLink, Star, MessageSquare, Loader2, AlertCircle, Gift } from 'lucide-react';
 import { contractService } from '../src/services/contractService';
 import ReviewService, { Review, ReviewStats } from '../services/reviewService';
 import AirdropModal from '../components/AirdropModal';
+import { toast } from 'react-hot-toast';
 
 interface EventDetailsProps {
   wallet: WalletState;
   onBuyTicket: (event: NftEvent, onSuccess?: () => void) => void;
   mintingEventId: string | null;
   onMintSuccess: () => void;
+  refreshTrigger: number;
 }
 
-const EventDetails: React.FC<EventDetailsProps> = ({ wallet, onBuyTicket, mintingEventId, onMintSuccess }) => {
+const EventDetails: React.FC<EventDetailsProps> = ({ wallet, onBuyTicket, mintingEventId, onMintSuccess, refreshTrigger }) => {
   const { id } = useParams<{ id: string }>();
   const [showCalendarOptions, setShowCalendarOptions] = useState(false);
   const calendarRef = useRef<HTMLDivElement>(null);
@@ -43,58 +45,65 @@ const EventDetails: React.FC<EventDetailsProps> = ({ wallet, onBuyTicket, mintin
   const [showAirdropModal, setShowAirdropModal] = useState(false);
 
   // Fetch event data from blockchain
-  useEffect(() => {
-    const fetchEvent = async () => {
-      if (!id) return;
+  const fetchEvent = useCallback(async () => {
+    if (!id) return;
 
-      try {
-        setLoading(true);
-        setError(null);
+    try {
+      setLoading(true);
+      setError(null);
 
-        // Check MetaMask connection
-        if (!window.ethereum) {
-          setError('MetaMask not detected. Please install MetaMask to view events.');
-          return;
-        }
-
-        // Check if on Sepolia network
-        const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-        if (chainId !== '0xaa36a7') {
-          setError('Please switch to Sepolia testnet in MetaMask to view events.');
-          return;
-        }
-
-        // Initialize contract service and fetch event
-        await contractService.initializeReadOnly();
-        const eventData = await contractService.getEvent(parseInt(id));
-
-        // Convert to NftEvent format
-        const formattedEvent: NftEvent = {
-          id: eventData.id,
-          title: eventData.title,
-          description: eventData.description,
-          date: eventData.date,
-          location: eventData.location,
-          priceETH: parseFloat(eventData.priceETH),
-          imageUrl: eventData.imageUrl,
-          organizer: eventData.organizer,
-          totalTickets: eventData.totalTickets,
-          soldTickets: eventData.soldTickets,
-          category: 'Other', // Default category since contract doesn't store it
-          reviews: [] // Reviews are handled off-chain
-        };
-
-        setEvent(formattedEvent);
-      } catch (err) {
-        console.error('Failed to fetch event:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load event data');
-      } finally {
-        setLoading(false);
+      // Check MetaMask connection
+      if (!window.ethereum) {
+        setError('MetaMask not detected. Please install MetaMask to view events.');
+        return;
       }
-    };
 
-    fetchEvent();
+      // Check if on Sepolia network
+      const chainId = await window.ethereum.request({ method: 'eth_chainId' });
+      if (chainId !== '0xaa36a7') {
+        setError('Please switch to Sepolia testnet in MetaMask to view events.');
+        return;
+      }
+
+      // Initialize contract service and fetch event
+      await contractService.initializeReadOnly();
+      const eventData = await contractService.getEvent(parseInt(id));
+
+      // Convert to NftEvent format
+      const formattedEvent: NftEvent = {
+        id: eventData.id,
+        title: eventData.title,
+        description: eventData.description,
+        date: eventData.date,
+        location: eventData.location,
+        priceETH: parseFloat(eventData.priceETH),
+        imageUrl: eventData.imageUrl,
+        organizer: eventData.organizer,
+        totalTickets: eventData.totalTickets,
+        soldTickets: eventData.soldTickets,
+        category: 'Other', // Default category since contract doesn't store it
+        reviews: [] // Reviews are handled off-chain
+      };
+
+      setEvent(formattedEvent);
+    } catch (err) {
+      console.error('Failed to fetch event:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load event data');
+    } finally {
+      setLoading(false);
+    }
   }, [id]);
+
+  useEffect(() => {
+    fetchEvent();
+  }, [fetchEvent]);
+
+  // Refetch when refreshTrigger changes
+  useEffect(() => {
+    if (refreshTrigger > 0) {
+      fetchEvent();
+    }
+  }, [refreshTrigger, fetchEvent]);
 
   // Scroll to top on mount
   useEffect(() => {
@@ -182,7 +191,6 @@ const EventDetails: React.FC<EventDetailsProps> = ({ wallet, onBuyTicket, mintin
     return (
       <div className="min-h-screen bg-lumina-dark text-white flex items-center justify-center">
         <div className="text-center">
-          <AlertCircle className="h-12 w-12 text-red-500 mb-4 mx-auto" />
           <h2 className="text-2xl font-bold mb-4">{error ? 'Error Loading Event' : 'Event Not Found'}</h2>
           <p className="text-red-400 mb-6">{error || 'The event could not be found on the blockchain.'}</p>
           <Link to="/explore" className="inline-flex items-center px-6 py-3 bg-lumina-glow text-white rounded-lg hover:bg-lumina-glow/80 transition-colors">
@@ -395,7 +403,8 @@ END:VCALENDAR`;
 
     } catch (error) {
       console.error('Failed to update review:', error);
-      alert('Failed to update review. Please try again.');
+      //alert('Failed to update review. Please try again.');
+      toast.error('Failed to update review. Please try again.');
     } finally {
       setSubmittingReview(false);
     }
@@ -671,7 +680,7 @@ END:VCALENDAR`;
 
                            // Debug logging for edit button visibility
                            if (isOwnReview) {
-                               console.log('Edit button should show for review:', review.id, 'User:', review.userAddress, 'Wallet:', wallet.address);
+                               // Edit button visibility check
                            }
 
                            return (
@@ -731,7 +740,7 @@ END:VCALENDAR`;
                                                    <button
                                                        onClick={handleSaveEdit}
                                                        disabled={submittingReview}
-                                                       className="text-xs px-3 py-1 bg-green-600 text-white rounded-full hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                                       className="text-xs px-3 py-1 bg-purple-600 text-white rounded-full hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                                    >
                                                        {submittingReview ? 'Saving...' : 'Save'}
                                                    </button>

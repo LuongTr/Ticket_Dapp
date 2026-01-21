@@ -28,6 +28,7 @@ import {
   Loader2,
   QrCode
 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 interface MarketplaceProps {
   wallet: WalletState;
@@ -175,21 +176,15 @@ const Marketplace: React.FC<MarketplaceProps> = ({ wallet, onConnectWallet }) =>
 
       try {
         setLoadingTickets(true);
-        console.log('🎫 Fetching user tickets for:', wallet.address);
 
         const response = await fetch(`http://localhost:3001/api/marketplace/user-tickets/${wallet.address}`);
         const result = await response.json();
 
-        console.log('📥 User tickets API response:', result);
-
         if (result.success) {
-          console.log('✅ Setting user tickets:', result.data);
           setUserTickets(result.data);
-        } else {
-          console.log('❌ API returned error:', result.error);
         }
       } catch (error) {
-        console.error('❌ Failed to load user tickets:', error);
+        console.error('Failed to load user tickets:', error);
       } finally {
         setLoadingTickets(false);
       }
@@ -361,23 +356,17 @@ const Marketplace: React.FC<MarketplaceProps> = ({ wallet, onConnectWallet }) =>
       // Generate message and signature for wallet verification
       const message = `Place bid of ${bidAmount} ETH on auction for ticket #${selectedAuction.ticketId} (${getAuctionTitle(selectedAuction)}). Timestamp: ${new Date().toISOString()}`;
 
-      console.log('Requesting wallet signature for bid:', message);
-
       // Request user signature (this will show MetaMask popup)
       const signature = await window.ethereum.request({
         method: 'personal_sign',
         params: [message, wallet.address],
       });
 
-      console.log('Signature obtained for bid:', signature);
-
       const bidData = {
         bidAmount: parseFloat(bidAmount),
         signature,
         message,
       };
-
-      console.log('🚀 Submitting bid to backend...');
 
       // Submit bid to backend
       const bidResponse = await fetch(`http://localhost:3001/api/marketplace/${selectedAuction.id}/bid`, {
@@ -392,12 +381,11 @@ const Marketplace: React.FC<MarketplaceProps> = ({ wallet, onConnectWallet }) =>
 
       if (!bidResult.success) {
         console.error('❌ Bid submission failed:', bidResult.error);
-        alert(`Bid failed: ${bidResult.error}`);
+        //alert(`Bid failed: ${bidResult.error}`);
+        toast.error(`Bid failed: ${bidResult.error}`);
         setIsPlacingBid(false);
         return;
       }
-
-      console.log('✅ Bid submitted successfully');
 
       // Update auction data locally
       const updatedAuctions = auctions.map(auction =>
@@ -418,11 +406,13 @@ const Marketplace: React.FC<MarketplaceProps> = ({ wallet, onConnectWallet }) =>
       setSelectedAuction(null);
       setBidAmount('');
 
-      alert('Bid placed successfully! You are now the highest bidder.');
+      //alert('Bid placed successfully! You are now the highest bidder.');
+      toast.success('Bid placed successfully! You are now the highest bidder.');
 
     } catch (error) {
       console.error('❌ Error placing bid:', error);
-      alert('Failed to place bid. Please try again.');
+      //alert('Failed to place bid. Please try again.');
+      toast.error('Failed to place bid. Please try again.');
     } finally {
       setIsPlacingBid(false);
     }
@@ -438,7 +428,6 @@ const Marketplace: React.FC<MarketplaceProps> = ({ wallet, onConnectWallet }) =>
       setIsCreatingAuction(true);
 
       // Check if ticket is already in an active auction
-      console.log('🔍 Checking if ticket is already in auction...');
       const checkResponse = await fetch(`http://localhost:3001/api/marketplace/check-ticket/${selectedTicket.ticketId}`);
       const checkResult = await checkResponse.json();
 
@@ -455,15 +444,11 @@ const Marketplace: React.FC<MarketplaceProps> = ({ wallet, onConnectWallet }) =>
       // Generate message and signature for wallet verification
       const message = `Create auction for ticket #${selectedTicket.ticketId} (${selectedTicket.eventTitle}) with starting price ${auctionForm.startingPrice} ETH. Timestamp: ${new Date().toISOString()}`;
 
-      console.log('Requesting wallet signature for:', message);
-
       // Request user signature (this will show MetaMask popup)
       const signature = await window.ethereum.request({
         method: 'personal_sign',
         params: [message, wallet.address],
       });
-
-      console.log('Signature obtained:', signature);
 
       const auctionData = {
         ticketId: selectedTicket.ticketId.toString(),
@@ -474,8 +459,6 @@ const Marketplace: React.FC<MarketplaceProps> = ({ wallet, onConnectWallet }) =>
         signature,
         message,
       };
-
-      console.log('🚀 Step 1: Preparing auction metadata...');
 
       // Step 1: Call backend to prepare auction metadata and get IPFS hash
       const prepareResponse = await fetch('http://localhost:3001/api/marketplace/auctions', {
@@ -495,12 +478,9 @@ const Marketplace: React.FC<MarketplaceProps> = ({ wallet, onConnectWallet }) =>
         return;
       }
 
-      console.log('✅ Step 1 complete: Got IPFS hash and metadata');
-
       const { ipfsHash, auctionMetadata, sellerAddress } = prepareResult.data;
 
       // Step 2: Create auction directly on blockchain
-      console.log('🚀 Step 2: Creating auction on blockchain...');
 
       try {
         // Import contract service dynamically to avoid circular imports
@@ -517,11 +497,7 @@ const Marketplace: React.FC<MarketplaceProps> = ({ wallet, onConnectWallet }) =>
           ipfsHash
         );
 
-        console.log('✅ Step 2 complete: Auction created on blockchain with ID:', auctionId);
-
         // Step 3: Register auction in database
-        console.log('🚀 Step 3: Registering auction in database...');
-
         const registerData = {
           auctionId,
           ipfsHash,
@@ -547,17 +523,12 @@ const Marketplace: React.FC<MarketplaceProps> = ({ wallet, onConnectWallet }) =>
           return;
         }
 
-        console.log('✅ Step 3 complete: Auction registered in database');
-        console.log('🎉 Auction creation fully complete!');
-
         setAuctionCreated(true);
 
         // Immediately refresh auctions list to show the new auction
-        console.log('🔄 Refreshing auctions list...');
         try {
           const updatedAuctions = await auctionService.getAuctions();
           setAuctions(updatedAuctions);
-          console.log('✅ Auctions list updated with new auction');
         } catch (refreshError) {
           console.error('❌ Failed to refresh auctions:', refreshError);
         }
@@ -690,6 +661,8 @@ const Marketplace: React.FC<MarketplaceProps> = ({ wallet, onConnectWallet }) =>
         {/* Tab Content */}
         {activeTab === 'auctions' && (
           <div>
+            
+
             {/* Search and Filter Controls */}
             <div className="flex flex-col sm:flex-row gap-4 mb-8">
               <div className="flex-1 relative">
@@ -714,6 +687,15 @@ const Marketplace: React.FC<MarketplaceProps> = ({ wallet, onConnectWallet }) =>
                 <option value="lowest-price">Lowest Price</option>
               </select>
             </div>
+
+            {/* Loading State for Auction House */}
+            {loading && (
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <Loader2 className="h-12 w-12 animate-spin text-lumina-glow mb-4" />
+                <h3 className="text-xl font-bold text-white mb-2">Loading Auction House</h3>
+                {/* <p className="text-gray-400">Fetching live auctions from the marketplace...</p> */}
+              </div>
+            )}
 
             {/* Auctions Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -799,7 +781,7 @@ const Marketplace: React.FC<MarketplaceProps> = ({ wallet, onConnectWallet }) =>
               })}
             </div>
 
-            {filteredAuctions.length === 0 && (
+            {!loading && filteredAuctions.length === 0 && (
               <div className="text-center py-12">
                 <Gavel className="h-12 w-12 text-gray-600 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-white mb-2">No Auctions Found</h3>

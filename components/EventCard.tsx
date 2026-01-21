@@ -85,7 +85,7 @@ const EventCard: React.FC<EventCardProps> = ({ event, onBuy, onClick, isMinting 
             {isMinting ? (
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Minting
+                Purchase
               </>
             ) : (
               'Mint Ticket'

@@ -4,6 +4,7 @@ import { QrCode, Ticket as TicketIcon, Clock, CheckCircle2, XCircle, X, ScanLine
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { contractService } from '../src/services/contractService';
 import QRCode from 'qrcode';
+import toast from 'react-hot-toast';
 
 interface DashboardProps {
   wallet: WalletState;
@@ -183,16 +184,30 @@ const Dashboard: React.FC<DashboardProps> = ({ wallet }) => {
 
       setTransferTicket(null);
       setRecipientAddress('');
-      alert('Ticket transferred successfully!');
+      //alert('Ticket transferred successfully!');
+      toast.success('Ticket transferred successfully!');
     } catch (error) {
       console.error('Failed to transfer ticket:', error);
-      alert(`Failed to transfer ticket: ${error.message || 'Unknown error'}`);
+      //alert(`Failed to transfer ticket: ${error.message || 'Unknown error'}`);
+      toast.error(`Failed to transfer ticket: ${error.message || 'Unknown error'}`);
     } finally {
       setIsTransferring(false);
     }
   };
 
-  if (tickets.length === 0) {
+  // Loading state
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
+        <Loader2 className="h-12 w-12 animate-spin text-lumina-glow mb-4" />
+        <h2 className="text-2xl font-bold text-white mb-2">Loading Your Tickets</h2>
+        {/* <p className="text-gray-400">Fetching tickets from the blockchain...</p> */}
+      </div>
+    );
+  }
+
+  // No tickets state
+  if (!loading && tickets.length === 0) {
     return (
         <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
             <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mb-6">
@@ -291,7 +306,7 @@ const Dashboard: React.FC<DashboardProps> = ({ wallet }) => {
                                 }`}
                             >
                                 <QrCode className="h-4 w-4 mr-2" />
-                                {ticket.isUsed ? 'Archived' : 'Reveal QR'}
+                                {ticket.isUsed ? 'Reveal QR' : 'Reveal QR'}
                             </button>
                         </div>
                     </div>
@@ -407,7 +422,7 @@ const Dashboard: React.FC<DashboardProps> = ({ wallet }) => {
                     `}</style>
                 </div>
 
-                <div className="space-y-3">
+                {/* <div className="space-y-3">
                     <button
                         onClick={handleVerify}
                         disabled={isVerifying}
@@ -425,7 +440,7 @@ const Dashboard: React.FC<DashboardProps> = ({ wallet }) => {
                     <p className="text-center text-xs text-gray-500">
                         Show this QR code at the venue entrance.
                     </p>
-                </div>
+                </div> */}
             </div>
         </div>
       )}

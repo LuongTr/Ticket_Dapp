@@ -209,7 +209,6 @@ const Explore: React.FC<ExploreProps> = ({ wallet, onBuyTicket, onViewEventDetai
       {/* Error State */}
       {error && !loading && (
         <div className="flex flex-col items-center justify-center py-20 text-center">
-          <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
           <h3 className="text-xl font-bold text-white mb-2">Failed to Load Events</h3>
           <p className="text-red-400 mb-4">{error}</p>
           <button

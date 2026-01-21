@@ -408,7 +408,6 @@ const TicketManager: React.FC<TicketManagerProps> = ({ wallet, onConnectWallet }
     return (
       <div className="min-h-screen bg-lumina-dark text-white flex items-center justify-center">
         <div className="text-center">
-          <AlertCircle className="h-12 w-12 text-red-500 mb-4 mx-auto" />
           <h2 className="text-2xl font-bold mb-4">{error ? 'Access Error' : 'Event Not Found'}</h2>
           <p className="text-red-400 mb-6">{error || 'The event could not be found.'}</p>
           <Link to="/explore" className="inline-flex items-center px-6 py-3 bg-lumina-glow text-white rounded-lg hover:bg-lumina-glow/80 transition-colors">
@@ -807,7 +806,6 @@ const TicketManager: React.FC<TicketManagerProps> = ({ wallet, onConnectWallet }
             {/* Status Messages */}
             {scanError && (
               <div className="mb-4 p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center">
-                <AlertCircle className="h-5 w-5 text-red-400 mr-3 flex-shrink-0" />
                 <p className="text-red-400 text-sm">{scanError}</p>
               </div>
             )}
