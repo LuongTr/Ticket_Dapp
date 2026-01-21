@@ -1,9 +1,5 @@
 # Lumina - NFT Event Ticketing Platform
 
-<div align="center">
-<img width="1200" height="475" alt="Lumina Banner" src="https://github.com/user-attachments/assets/lumina-banner" />
-</div>
-
 ## Overview
 
 Lumina is a revolutionary NFT-based event ticketing platform built on Ethereum blockchain. It eliminates counterfeit tickets, scalping, and provides secure, transparent ticketing with smart contract-backed NFTs. Event organizers earn perpetual royalties on secondary ticket sales while attendees enjoy instant transfers and verified ownership.
@@ -30,14 +26,6 @@ Lumina consists of three main components:
 - **Blockchain Integration**: ethers.js for wallet connections and contract interactions
 - **Features**: QR code generation, real-time statistics, event management
 
-### Backend API
-
-- **Framework**: Node.js + Express.js
-- **Database**: Microsoft SQL Server
-- **Blockchain**: ethers.js for contract interactions
-- **IPFS**: Pinata integration for metadata storage
-- **Security**: Helmet, CORS, rate limiting
-
 ### Smart Contracts
 
 - **Framework**: Hardhat + Solidity
@@ -48,13 +36,6 @@ Lumina consists of three main components:
 ## Prerequisites
 
 Before running Lumina, ensure you have the following installed:
-
-### System Requirements
-
-- **Node.js** (>= 18.0.0)
-- **npm** (>= 8.0.0) or **yarn**
-- **Git**
-- **Microsoft SQL Server** (for database) or alternative SQL database
 
 ### Required Accounts & APIs
 
@@ -72,19 +53,7 @@ git clone https://github.com/LuongTr/Ticket_Dapp.git
 cd Ticket_Dapp
 ```
 
-### 2. Database Setup
-
-#### Option A: Microsoft SQL Server (Recommended)
-
-1. Install SQL Server Express or Developer Edition
-2. Create a new database named `lumina_tickets`
-3. Update connection settings in `lumina-api/.env` (see Environment Configuration)
-
-#### Option B: Alternative Database
-
-Modify `lumina-api/src/services/database.js` to use your preferred SQL database.
-
-### 3. Smart Contracts Setup
+### 2. Smart Contracts Setup
 
 ```bash
 # Navigate to web3 directory
@@ -111,25 +80,7 @@ npm run deploy:sepolia
 npm run verify:sepolia
 ```
 
-### 4. Backend API Setup
-
-```bash
-# Navigate to API directory
-cd ../lumina-api
-
-# Install dependencies
-npm install
-
-# Copy environment template
-cp .env.example .env
-
-# Edit .env with your configuration (see Environment Variables section)
-
-# Start the development server
-npm run dev
-```
-
-### 5. Frontend Setup
+### 3. Frontend Setup
 
 ```bash
 # Navigate to frontend directory (root)
@@ -160,30 +111,6 @@ VITE_CONTRACT_ADDRESS=0xd2c7D664cD1CF54f046BF6086AfC2cAc0B552f43
 VITE_SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/YOUR_INFURA_API_KEY
 ```
 
-### Backend (lumina-api/.env)
-
-```env
-# Server Configuration
-PORT=3001
-NODE_ENV=development
-FRONTEND_URL=http://localhost:3000
-
-# Database Configuration (MS SQL Server)
-DB_SERVER=DESKTOP-UNPULAB
-DB_DATABASE=lumina_tickets
-DB_TRUSTED_CONNECTION=false
-DB_USER=sa
-DB_PASSWORD=your_password
-
-# Blockchain Configuration
-RPC_URL=https://sepolia.infura.io/v3/YOUR_INFURA_API_KEY
-CONTRACT_ADDRESS=0xd2c7D664cD1CF54f046BF6086AfC2cAc0B552f43
-
-# Pinata Configuration (IPFS)
-PINATA_JWT=your_pinata_jwt_token
-
-```
-
 ### Smart Contracts (web3/.env)
 
 ```env
@@ -200,27 +127,14 @@ ETHERSCAN_API_KEY=your_etherscan_api_key
 REPORT_GAS=true
 ```
 
-## ▶️ Running the Application
+## Running the Application
 
 ### Development Mode
 
-1. **Start Backend API** (Terminal 1):
-
-   ```bash
-   cd lumina-api
-   npm run dev
-   ```
-
-   Server will start on http://localhost:3001
-
-2. **Start Frontend** (Terminal 2):
+1. **Start Frontend**:
 
    ```bash
    npm run dev
    ```
 
    Application will be available at http://localhost:3000
-
----
-
-**Lumina** - Transforming event ticketing with blockchain technology ✨
